@@ -131,8 +131,8 @@ export default function Dashboard({ onLogout }) {
               <KPICard label="Reuniones"          value={kpis.reuniones}        icon="🤝" color="teal" />
               <KPICard label="Tareas Completadas" value={kpis.tareas}           icon="✅" color="emerald" />
               {ownerFiltro === 'todos'
-                ? velocidadPromedio !== null && <KPICard label="Velocidad Promedio" value={`${velocidadPromedio}d`} icon="⚡" color="yellow" sub="promedio equipo · 90d" />
-                : kpis.velocidadDias !== null && <KPICard label="Velocidad de Cierre" value={`${kpis.velocidadDias}d`} icon="⚡" color="yellow" sub={`${kpis.velocidadDeals ?? ''} deals · 90d`} />
+                ? (velocidadPromedio != null && <KPICard label="Velocidad Promedio" value={`${velocidadPromedio}d`} icon="⚡" color="yellow" sub="promedio equipo · 90d" />)
+                : (kpis.velocidadDias != null && <KPICard label="Velocidad de Cierre" value={`${kpis.velocidadDias}d`} icon="⚡" color="yellow" sub={kpis.velocidadDeals ? `${kpis.velocidadDeals} deals · 90d` : '90d'} />)
               }
               {semanaActual?.tareasVencidas != null && (
                 <KPICard label="Tareas Vencidas" value={ownerFiltro === 'todos' ? semanaActual.tareasVencidas : (kpis.tareasVencidas ?? 0)} icon="⏰" color="red" />

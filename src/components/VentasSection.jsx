@@ -31,10 +31,18 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
   const vendedores = (() => {
     if (!ownerNombre || ownerFiltro === 'todos') return todosVendedores;
     const needle = ownerNombre.trim().toLowerCase();
-    const found = todosVendedores.filter(v =>
-      v.nombre.toLowerCase().includes(needle) ||
-      needle.includes(v.nombre.toLowerCase().split(' ')[0])
-    );
+    const needleWords = needle.split(/\s+/);
+    const found = todosVendedores.filter(v => {
+      const vName = v.nombre.trim().toLowerCase();
+      const vWords = vName.split(/\s+/);
+      // Exacto
+      if (vName === needle) return true;
+      // Todas las palabras del nombre Excel están en el nombre HubSpot
+      if (vWords.every(w => needle.includes(w))) return true;
+      // Todas las palabras del nombre HubSpot están en el nombre Excel
+      if (needleWords.every(w => vName.includes(w))) return true;
+      return false;
+    });
     return found.length > 0 ? found : todosVendedores;
   })();
 

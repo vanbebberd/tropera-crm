@@ -22,7 +22,7 @@ export default function VendedorCards({ vendedores }) {
             <Stat label="Visitados" value={v.dealsVisitados}   color="text-yellow-400" />
             <Stat label="Ganados"   value={v.dealsGanados}     color="text-green-400" />
             <Stat label="Tasa"      value={`${v.tasaExito}%`}  color={v.tasaExito >= 50 ? 'text-green-400' : v.tasaExito >= 25 ? 'text-yellow-400' : 'text-red-400'} />
-            <Stat label="Velocidad" value={v.velocidadDias !== null ? `${v.velocidadDias}d` : '—'} color={v.velocidadDias !== null ? 'text-yellow-400' : 'text-gray-600'} sub={v.velocidadDias !== null ? `${v.velocidadDeals} deal${v.velocidadDeals !== 1 ? 's' : ''}` : null} />
+            <Stat label="Velocidad" value={v.velocidadDias != null ? `${v.velocidadDias}d` : '—'} color={v.velocidadDias != null ? 'text-yellow-400' : 'text-gray-600'} sub={v.velocidadDias != null && v.velocidadDeals ? `${v.velocidadDeals} deal${v.velocidadDeals !== 1 ? 's' : ''}` : null} />
           </div>
 
           {/* Actividades */}

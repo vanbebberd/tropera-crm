@@ -50,6 +50,13 @@ export default function Dashboard({ onLogout }) {
     return v ? { ...semanaActual, ...v } : semanaActual;
   })();
 
+  // Velocidad promedio general (todos los vendedores con datos, últimos 90d)
+  const velocidadPromedio = (() => {
+    const conDatos = todos.filter(v => v.velocidadDias !== null);
+    if (!conDatos.length) return null;
+    return Math.round(conDatos.reduce((s, v) => s + v.velocidadDias, 0) / conDatos.length);
+  })();
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Header */}
@@ -123,8 +130,12 @@ export default function Dashboard({ onLogout }) {
               <KPICard label="Llamadas"           value={kpis.llamadas}         icon="📞" color="purple" />
               <KPICard label="Reuniones"          value={kpis.reuniones}        icon="🤝" color="teal" />
               <KPICard label="Tareas Completadas" value={kpis.tareas}           icon="✅" color="emerald" />
+              {ownerFiltro === 'todos'
+                ? velocidadPromedio !== null && <KPICard label="Velocidad Promedio" value={`${velocidadPromedio}d`} icon="⚡" color="yellow" sub="promedio equipo · 90d" />
+                : kpis.velocidadDias !== null && <KPICard label="Velocidad de Cierre" value={`${kpis.velocidadDias}d`} icon="⚡" color="yellow" sub={`${kpis.velocidadDeals ?? ''} deals · 90d`} />
+              }
               {semanaActual?.tareasVencidas != null && (
-                <KPICard label="Tareas Vencidas" value={semanaActual.tareasVencidas} icon="⏰" color="red" />
+                <KPICard label="Tareas Vencidas" value={ownerFiltro === 'todos' ? semanaActual.tareasVencidas : (kpis.tareasVencidas ?? 0)} icon="⏰" color="red" />
               )}
             </div>
           ) : null}

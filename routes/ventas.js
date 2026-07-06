@@ -6,7 +6,9 @@ const { parseVentasExcel } = require('../lib/parseExcel');
 
 const router  = express.Router();
 const upload  = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-const DATA_FILE = path.join(__dirname, '../data/ventas.json');
+const DATA_FILE = process.env.VERCEL
+  ? '/tmp/ventas.json'
+  : path.join(__dirname, '../data/ventas.json');
 
 function readData() {
   try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
@@ -14,7 +16,8 @@ function readData() {
 }
 
 function saveData(data) {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+  const dir = path.dirname(DATA_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 

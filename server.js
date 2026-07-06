@@ -16,6 +16,7 @@ app.get('/health', (_, res) => res.json({ ok: true }));
 
 app.use('/api/auth',     authRouter);
 app.use('/api/hubspot',  authMiddleware, require('./routes/hubspot'));
+app.use('/api/ventas',   authMiddleware, require('./routes/ventas'));
 
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));

@@ -19,4 +19,14 @@ export const api = {
   resumen: (semanas = 4) => req(`/hubspot/resumen?semanas=${semanas}&_=${Date.now()}`),
   mensual: (meses = 6)   => req(`/hubspot/mensual?meses=${meses}&_=${Date.now()}`),
   owners:  ()            => req('/hubspot/owners'),
+  ventas:  ()            => req('/ventas'),
+  uploadVentas: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return fetch('/api/ventas/upload', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: form,
+    }).then(r => r.json());
+  },
 };

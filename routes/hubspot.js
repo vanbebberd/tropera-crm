@@ -63,6 +63,37 @@ router.get('/resumen', async (req, res) => {
       ...dateFilter('hs_createdate', rangeStart, rangeEnd),
       { propertyName: 'hs_task_status', operator: 'EQ', value: 'COMPLETED' },
     ], ['hs_createdate', 'hubspot_owner_id', 'hs_task_status']);
+    await sleep(300);
+
+    // Deals ganados últimos 90 días — ventana fija para calcular velocidad estable
+    const vel90Start = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const dealsVel90 = await search('deals', [
+      ...dateFilter('closedate', vel90Start, Date.now()),
+      { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' },
+    ], ['createdate', 'closedate', 'hubspot_owner_id']);
+    await sleep(300);
+
+    // Velocidad rolling 90d por owner (días promedio creación → cierre)
+    const velocidadRolling = {};
+    dealsVel90.forEach(d => {
+      const oid     = String(d.properties?.hubspot_owner_id || 'sin_asignar');
+      const created = new Date(d.properties?.createdate || 0).getTime();
+      const closed  = new Date(d.properties?.closedate  || 0).getTime();
+      if (created && closed > created) {
+        const days = Math.round((closed - created) / 86400000);
+        if (!velocidadRolling[oid]) velocidadRolling[oid] = { total: 0, count: 0 };
+        velocidadRolling[oid].total += days;
+        velocidadRolling[oid].count += 1;
+      }
+    });
+
+    // Tareas vencidas: snapshot actual (sin filtro de fecha, no completadas con fecha pasada)
+    const tareasVencidasAll = await search('tasks', [
+      { propertyName: 'hs_task_status', operator: 'NEQ', value: 'COMPLETED' },
+      { propertyName: 'hs_timestamp', operator: 'LT', value: String(Date.now()) },
+    ], ['hs_timestamp', 'hubspot_owner_id', 'hs_task_status', 'hs_task_subject']);
+
+    const tarVenByOwner = countByOwner(tareasVencidasAll, 'hubspot_owner_id');
 
     // Filtrar por semana y calcular métricas en JS
     const result = [];
@@ -78,21 +109,6 @@ router.get('/resumen', async (req, res) => {
       const reuniones        = reunionesAll.filter(r => inRange(r.properties?.hs_createdate,  start, end));
       const tareas           = tareasAll.filter(t   => inRange(t.properties?.hs_createdate,   start, end));
 
-      // Velocidad de compra por owner
-      const velocidad = {};
-      dealsGanados.forEach(d => {
-        const oid     = String(d.properties?.hubspot_owner_id || 'sin_asignar');
-        const name    = ownerMap[oid] || oid;
-        const created = new Date(d.properties?.createdate || 0).getTime();
-        const closed  = new Date(d.properties?.closedate  || 0).getTime();
-        if (created && closed > created) {
-          const days = Math.round((closed - created) / 86400000);
-          if (!velocidad[name]) velocidad[name] = { total: 0, count: 0 };
-          velocidad[name].total += days;
-          velocidad[name].count += 1;
-        }
-      });
-
       const ganByOwner  = countByOwner(dealsGanados,    'hubspot_owner_id');
       const creaByOwner = countByOwner(contactosCreados, 'hubspot_owner_id');
       const visByOwner  = countByOwner(dealsVisitados,   'hubspot_owner_id');
@@ -102,7 +118,7 @@ router.get('/resumen', async (req, res) => {
       const tarByOwner  = countByOwner(tareas,           'hubspot_owner_id');
 
       const porVendedor = owners.map(o => {
-        const vel = velocidad[o.name];
+        const vel = velocidadRolling[o.id];
         const dc  = dcreByOwner[o.id] || 0;
         const dg  = ganByOwner[o.id]  || 0;
         return {
@@ -116,7 +132,9 @@ router.get('/resumen', async (req, res) => {
           llamadas:         llamByOwner[o.id] || 0,
           reuniones:        reunByOwner[o.id] || 0,
           tareas:           tarByOwner[o.id]  || 0,
+          tareasVencidas:   tarVenByOwner[o.id] || 0,
           velocidadDias: vel ? Math.round(vel.total / vel.count) : null,
+          velocidadDeals:   vel ? vel.count : 0,
         };
       }).filter(v => v.dealsGanados + v.contactosCreados + v.llamadas + v.reuniones + v.tareas > 0);
 
@@ -133,6 +151,7 @@ router.get('/resumen', async (req, res) => {
         llamadas:  llamadas.length,
         reuniones: reuniones.length,
         tareas:    tareas.length,
+        tareasVencidas: w === 0 ? tareasVencidasAll.length : null,
         porVendedor,
       });
     }

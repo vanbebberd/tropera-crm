@@ -5,12 +5,15 @@ import VendedorTable from '../components/VendedorTable';
 import SemanalChart from '../components/SemanalChart';
 import VelocidadChart from '../components/VelocidadChart';
 import MensualChart from '../components/MensualChart';
+import VentasSection from '../components/VentasSection';
+import VendedorCards from '../components/VendedorCards';
 
 const SEMANAS_OPTIONS = [1, 4, 8, 12];
 
 export default function Dashboard({ onLogout }) {
   const [data,        setData]        = useState(null);
   const [mensual,     setMensual]     = useState(null);
+  const [ventas,      setVentas]      = useState(null);
   const [error,       setError]       = useState('');
   const [loading,     setLoading]     = useState(true);
   const [semanas,     setSemanas]     = useState(4);
@@ -20,9 +23,10 @@ export default function Dashboard({ onLogout }) {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [resumen, men] = await Promise.all([api.resumen(semanas), api.mensual(6)]);
+      const [resumen, men, ven] = await Promise.all([api.resumen(semanas), api.mensual(6), api.ventas()]);
       setData(resumen);
       setMensual(men);
+      setVentas(ven);
       setLastUpdate(new Date());
     } catch (e) {
       setError(e.message);
@@ -37,6 +41,14 @@ export default function Dashboard({ onLogout }) {
   const owners       = data?.owners || [];
   const todos        = semanaActual?.porVendedor || [];
   const ownerNombre  = ownerFiltro === 'todos' ? null : owners.find(o => o.id === ownerFiltro)?.name;
+
+  // KPIs: si hay filtro muestra datos del vendedor, si no los totales
+  const kpis = (() => {
+    if (!semanaActual) return null;
+    if (ownerFiltro === 'todos') return semanaActual;
+    const v = todos.find(v => v.id === ownerFiltro);
+    return v ? { ...semanaActual, ...v } : semanaActual;
+  })();
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -62,64 +74,76 @@ export default function Dashboard({ onLogout }) {
           </div>
         )}
 
-        {/* Selector de semanas */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-400">Semanas:</span>
-          {SEMANAS_OPTIONS.map(n => (
-            <button key={n} onClick={() => setSemanas(n)}
-              className={`px-3 py-1 rounded text-sm transition-colors ${semanas === n ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-              {n}
-            </button>
-          ))}
+        {/* Controles: semanas + filtro propietario */}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-400">Semanas:</span>
+            {SEMANAS_OPTIONS.map(n => (
+              <button key={n} onClick={() => setSemanas(n)}
+                className={`px-3 py-1 rounded text-sm transition-colors ${semanas === n ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                {n}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-sm text-gray-400">Vendedor:</span>
+            <select
+              value={ownerFiltro}
+              onChange={e => setOwnerFiltro(e.target.value)}
+              className="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-orange-500"
+            >
+              <option value="todos">Todos</option>
+              {owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+            {ownerFiltro !== 'todos' && (
+              <button onClick={() => setOwnerFiltro('todos')} className="text-xs text-gray-500 hover:text-white">✕</button>
+            )}
+          </div>
         </div>
 
-        {/* ── RESUMEN GENERAL — siempre los totales ── */}
+        {/* ── KPIs — totales o por vendedor si hay filtro ── */}
         <section>
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
             Resumen semana actual
             {semanaActual?.label && <span className="text-orange-400 normal-case ml-2">({semanaActual.label})</span>}
+            {ownerNombre && <span className="text-blue-400 normal-case ml-2">— {ownerNombre}</span>}
           </h2>
           {loading && !data ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[...Array(8)].map((_, i) => <div key={i} className="bg-gray-900 rounded-xl h-24 animate-pulse border border-gray-800" />)}
             </div>
-          ) : semanaActual ? (
+          ) : kpis ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <KPICard label="Contactos Creados"  value={semanaActual.contactosCreados} icon="👤" color="blue" />
-              <KPICard label="Deals Creados"      value={semanaActual.dealsCreados}     icon="📋" color="indigo" />
-              <KPICard label="Deals Visitados"    value={semanaActual.dealsVisitados}   icon="🏃" color="yellow" />
-              <KPICard label="Deals Ganados"      value={semanaActual.dealsGanados}     icon="🏆" color="green" />
-              <KPICard label="Tasa de Éxito"      value={`${semanaActual.tasaExito}%`}  icon="🎯" color="orange" />
-              <KPICard label="Llamadas"           value={semanaActual.llamadas}         icon="📞" color="purple" />
-              <KPICard label="Reuniones"          value={semanaActual.reuniones}        icon="🤝" color="teal" />
-              <KPICard label="Tareas Completadas" value={semanaActual.tareas}           icon="✅" color="emerald" />
+              <KPICard label="Contactos Creados"  value={kpis.contactosCreados} icon="👤" color="blue" />
+              <KPICard label="Deals Creados"      value={kpis.dealsCreados}     icon="📋" color="indigo" />
+              <KPICard label="Deals Visitados"    value={kpis.dealsVisitados}   icon="🏃" color="yellow" />
+              <KPICard label="Deals Ganados"      value={kpis.dealsGanados}     icon="🏆" color="green" />
+              <KPICard label="Tasa de Éxito"      value={`${kpis.tasaExito}%`}  icon="🎯" color="orange" />
+              <KPICard label="Llamadas"           value={kpis.llamadas}         icon="📞" color="purple" />
+              <KPICard label="Reuniones"          value={kpis.reuniones}        icon="🤝" color="teal" />
+              <KPICard label="Tareas Completadas" value={kpis.tareas}           icon="✅" color="emerald" />
+              {semanaActual?.tareasVencidas != null && (
+                <KPICard label="Tareas Vencidas" value={semanaActual.tareasVencidas} icon="⏰" color="red" />
+              )}
             </div>
           ) : null}
+
+          {/* Tarjetas por vendedor — solo cuando se ven todos */}
+          {ownerFiltro === 'todos' && todos.length > 0 && (
+            <div className="mt-6">
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Actividades por vendedor — semana actual</p>
+              <VendedorCards vendedores={todos} />
+            </div>
+          )}
         </section>
 
         {/* ── TABLA VENDEDORES — siempre todos ── */}
         {todos.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                Por vendedor — semana actual
-              </h2>
-              {/* Filtro para gráficos */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Ver gráficos de:</span>
-                <select
-                  value={ownerFiltro}
-                  onChange={e => setOwnerFiltro(e.target.value)}
-                  className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-orange-500"
-                >
-                  <option value="todos">Todos</option>
-                  {owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                </select>
-                {ownerFiltro !== 'todos' && (
-                  <button onClick={() => setOwnerFiltro('todos')} className="text-xs text-gray-500 hover:text-white">✕</button>
-                )}
-              </div>
-            </div>
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+              Por vendedor — semana actual
+            </h2>
             <VendedorTable vendedores={todos} destacado={ownerFiltro} />
           </section>
         )}
@@ -153,6 +177,16 @@ export default function Dashboard({ onLogout }) {
             <VelocidadChart vendedores={todos} />
           </section>
         )}
+
+        {/* ── VENTAS DESDE EXCEL ── */}
+        <section>
+          <VentasSection
+            data={ventas}
+            onRefresh={() => api.ventas().then(setVentas)}
+            ownerFiltro={ownerFiltro}
+            ownerNombre={ownerNombre}
+          />
+        </section>
 
         {/* ── HISTORIAL — respeta el filtro ── */}
         {data?.semanas?.length > 1 && (

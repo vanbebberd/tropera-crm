@@ -18,6 +18,7 @@ export default function VendedorTable({ vendedores, destacado }) {
             <th className="text-right px-4 py-3 text-gray-400 font-medium">Llamadas</th>
             <th className="text-right px-4 py-3 text-gray-400 font-medium">Reuniones</th>
             <th className="text-right px-4 py-3 text-gray-400 font-medium">Tareas</th>
+            <th className="text-right px-4 py-3 text-red-400 font-medium">Vencidas</th>
           </tr>
         </thead>
         <tbody>
@@ -47,13 +48,18 @@ export default function VendedorTable({ vendedores, destacado }) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {v.velocidadDias !== null
-                    ? <span className="text-yellow-400 font-medium">{v.velocidadDias}d</span>
-                    : <span className="text-gray-600">—</span>}
+                  {v.velocidadDias !== null ? (
+                    <span title={`Promedio ${v.velocidadDeals} deal${v.velocidadDeals !== 1 ? 's' : ''} (90 días)`} className="text-yellow-400 font-medium cursor-help">{v.velocidadDias}d</span>
+                  ) : <span className="text-gray-600">—</span>}
                 </td>
                 <td className="px-4 py-3 text-right text-purple-400">{v.llamadas}</td>
                 <td className="px-4 py-3 text-right text-teal-400">{v.reuniones}</td>
                 <td className="px-4 py-3 text-right text-emerald-400">{v.tareas}</td>
+                <td className="px-4 py-3 text-right">
+                  {v.tareasVencidas > 0
+                    ? <span className="font-semibold text-red-400">{v.tareasVencidas}</span>
+                    : <span className="text-gray-600">—</span>}
+                </td>
               </tr>
             );
           })}

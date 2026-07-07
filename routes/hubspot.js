@@ -1,5 +1,5 @@
 const express = require('express');
-const { search, dateFilter, getOwners, weekRange } = require('../lib/hubspot');
+const { search, dateFilter, getOwners, weekRange, getDealStages } = require('../lib/hubspot');
 const router = express.Router();
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -27,10 +27,19 @@ router.get('/resumen', async (req, res) => {
     const rangeStart = oldest.start;
     const rangeEnd   = newest.end;
 
-    const owners = await getOwners();
+    const [owners, stages] = await Promise.all([getOwners(), getDealStages()]);
     const ownerMap = Object.fromEntries(owners.map(o => [o.id, o.name]));
 
-    // 7 queries secuenciales con 300 ms de pausa (rate limit HubSpot: 5 req/s)
+    const closedWonFilter = stages.closedWonIds.length
+      ? [{ propertyName: 'dealstage', operator: 'IN', values: stages.closedWonIds }]
+      : [{ propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }];
+
+    const visitadoFilter = stages.visitadoIds.length
+      ? [{ propertyName: 'dealstage', operator: 'IN', values: stages.visitadoIds }]
+      : [{ propertyName: 'dealstage', operator: 'CONTAINS_TOKEN', value: 'visit' }];
+
+    await sleep(300);
+
     const contactosAll = await search('contacts', dateFilter('createdate', rangeStart, rangeEnd),
       ['createdate', 'hubspot_owner_id', 'firstname', 'lastname']);
     await sleep(300);
@@ -41,13 +50,13 @@ router.get('/resumen', async (req, res) => {
 
     const dealsGanadosAll = await search('deals', [
       ...dateFilter('closedate', rangeStart, rangeEnd),
-      { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' },
+      ...closedWonFilter,
     ], ['createdate', 'closedate', 'hubspot_owner_id', 'amount']);
     await sleep(300);
 
     const dealsVisitadosAll = await search('deals', [
       ...dateFilter('createdate', rangeStart, rangeEnd),
-      { propertyName: 'dealstage', operator: 'CONTAINS_TOKEN', value: 'visit' },
+      ...visitadoFilter,
     ], ['createdate', 'dealstage', 'hubspot_owner_id']);
     await sleep(300);
 
@@ -69,7 +78,7 @@ router.get('/resumen', async (req, res) => {
     const vel90Start = Date.now() - 90 * 24 * 60 * 60 * 1000;
     const dealsVel90 = await search('deals', [
       ...dateFilter('closedate', vel90Start, Date.now()),
-      { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' },
+      ...closedWonFilter,
     ], ['createdate', 'closedate', 'hubspot_owner_id']);
     await sleep(300);
 
@@ -169,8 +178,12 @@ router.get('/resumen', async (req, res) => {
 router.get('/mensual', async (req, res) => {
   try {
     const meses = Math.min(parseInt(req.query.meses) || 6, 12);
-    const owners = await getOwners();
+    const [owners, stages] = await Promise.all([getOwners(), getDealStages()]);
     const ownerMap = Object.fromEntries(owners.map(o => [o.id, o.name]));
+
+    const closedWonFilter = stages.closedWonIds.length
+      ? [{ propertyName: 'dealstage', operator: 'IN', values: stages.closedWonIds }]
+      : [{ propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }];
 
     const now   = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - meses + 1, 1).getTime();
@@ -178,7 +191,7 @@ router.get('/mensual', async (req, res) => {
 
     const deals = await search('deals', [
       ...dateFilter('closedate', start, end),
-      { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' },
+      ...closedWonFilter,
     ], ['closedate', 'hubspot_owner_id', 'amount', 'dealname']);
 
     // Agrupar por mes (YYYY-MM)
@@ -215,6 +228,38 @@ router.get('/mensual', async (req, res) => {
 router.get('/owners', async (req, res) => {
   try { res.json(await getOwners()); }
   catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── GET /api/hubspot/debug — diagnóstico de stages y deals recientes ──────────
+router.get('/debug', async (req, res) => {
+  try {
+    const { get, search } = require('../lib/hubspot');
+
+    // Pipelines y stages reales del CRM
+    const pipelines = await get('/crm/v3/pipelines/deals');
+
+    // Últimos 10 deals con closedate (sin filtro de stage) para ver sus valores reales
+    const since = Date.now() - 180 * 24 * 60 * 60 * 1000; // 6 meses
+    const recentDeals = await search('deals',
+      [{ propertyName: 'closedate', operator: 'GTE', value: String(since) }],
+      ['dealname', 'dealstage', 'closedate', 'hubspot_owner_id']
+    );
+
+    res.json({
+      pipelines: (pipelines.results || []).map(p => ({
+        id: p.id, label: p.label,
+        stages: (p.stages || []).map(s => ({ id: s.id, label: s.label, probability: s.metadata?.probability }))
+      })),
+      recentDeals: recentDeals.slice(0, 20).map(d => ({
+        name:  d.properties?.dealname,
+        stage: d.properties?.dealstage,
+        close: d.properties?.closedate,
+        owner: d.properties?.hubspot_owner_id,
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

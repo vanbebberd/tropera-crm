@@ -34,7 +34,7 @@ router.post('/upload', upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No se recibió archivo' });
     const data = parseVentasExcel(req.file.buffer);
     saveData(data);
-    res.json({ ok: true, semanas: data.semanas, vendedores: data.vendedores.length });
+    res.json({ ok: true, semanas: data.semanas, vendedores: data.vendedores.length, data });
   } catch (err) {
     console.error('[ventas] upload error:', err.message);
     res.status(500).json({ error: err.message });

@@ -74,13 +74,15 @@ router.get('/resumen', async (req, res) => {
     await sleep(300);
 
     // Velocidad rolling 90d por owner (días promedio creación → cierre)
+    // closedate en HubSpot es medianoche UTC del día, createdate es timestamp exacto
+    // → closedate puede ser < createdate si se cerró el mismo día de creación → usamos Math.max(0, days)
     const velocidadRolling = {};
     dealsVel90.forEach(d => {
       const oid     = String(d.properties?.hubspot_owner_id || 'sin_asignar');
       const created = new Date(d.properties?.createdate || 0).getTime();
       const closed  = new Date(d.properties?.closedate  || 0).getTime();
-      if (created && closed > created) {
-        const days = Math.round((closed - created) / 86400000);
+      if (created && closed) {
+        const days = Math.max(0, Math.round((closed - created) / 86400000));
         if (!velocidadRolling[oid]) velocidadRolling[oid] = { total: 0, count: 0 };
         velocidadRolling[oid].total += days;
         velocidadRolling[oid].count += 1;

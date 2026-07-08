@@ -56,10 +56,11 @@ export default function Dashboard({ onLogout }) {
   })();
 
   // Velocidad promedio general (todos los vendedores con datos, últimos 90d)
-  const velocidadPromedio = (() => {
-    const conDatos = todos.filter(v => v.velocidadDias !== null);
+  const velocidadInfo = (() => {
+    const conDatos = allVendors.filter(v => v.velocidadDias !== null);
     if (!conDatos.length) return null;
-    return Math.round(conDatos.reduce((s, v) => s + v.velocidadDias, 0) / conDatos.length);
+    const promedio = Math.round(conDatos.reduce((s, v) => s + v.velocidadDias, 0) / conDatos.length);
+    return { promedio, count: conDatos.length, nombre: conDatos.length === 1 ? conDatos[0].nombre.split(' ')[0] : null };
   })();
 
   return (
@@ -136,7 +137,17 @@ export default function Dashboard({ onLogout }) {
               <KPICard label="Reuniones"          value={kpis.reuniones}        icon="🤝" color="teal" />
               <KPICard label="Tareas Completadas" value={kpis.tareas}           icon="✅" color="emerald" />
               {ownerFiltro === 'todos'
-                ? (velocidadPromedio != null && <KPICard label="Velocidad Promedio" value={`${velocidadPromedio}d`} icon="⚡" color="yellow" sub="promedio equipo · 90d" />)
+                ? (velocidadInfo != null && (
+                    <KPICard
+                      label="Velocidad de Cierre"
+                      value={`${velocidadInfo.promedio}d`}
+                      icon="⚡"
+                      color="yellow"
+                      sub={velocidadInfo.nombre
+                        ? `solo ${velocidadInfo.nombre} · 90d`
+                        : `${velocidadInfo.count} vendedores · 90d`}
+                    />
+                  ))
                 : (kpis.velocidadDias != null && <KPICard label="Velocidad de Cierre" value={`${kpis.velocidadDias}d`} icon="⚡" color="yellow" sub={kpis.velocidadDeals ? `${kpis.velocidadDeals} deals · 90d` : '90d'} />)
               }
               {semanaActual?.tareasVencidas != null && (

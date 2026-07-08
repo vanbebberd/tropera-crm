@@ -39,14 +39,19 @@ export default function Dashboard({ onLogout }) {
 
   const semanaActual = data?.semanas?.[0];
   const owners       = data?.owners || [];
-  const todos        = semanaActual?.porVendedor || [];
+  // allVendors: todos los owners (para lookup de KPIs al filtrar)
+  const allVendors   = semanaActual?.porVendedor || [];
+  // todos: solo los que tienen actividad esta semana (para tarjetas y tabla)
+  const todos        = allVendors.filter(v =>
+    v.dealsGanados + v.contactosCreados + v.llamadas + v.reuniones + v.tareas > 0
+  );
   const ownerNombre  = ownerFiltro === 'todos' ? null : owners.find(o => o.id === ownerFiltro)?.name;
 
-  // KPIs: si hay filtro muestra datos del vendedor, si no los totales
+  // KPIs: busca en allVendors (no en todos) para que siempre encuentre al vendedor
   const kpis = (() => {
     if (!semanaActual) return null;
     if (ownerFiltro === 'todos') return semanaActual;
-    const v = todos.find(v => v.id === ownerFiltro);
+    const v = allVendors.find(v => String(v.id) === String(ownerFiltro));
     return v ? { ...semanaActual, ...v } : semanaActual;
   })();
 

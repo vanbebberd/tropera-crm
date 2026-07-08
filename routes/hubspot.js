@@ -147,7 +147,7 @@ router.get('/resumen', async (req, res) => {
           velocidadDias: vel ? Math.round(vel.total / vel.count) : null,
           velocidadDeals:   vel ? vel.count : 0,
         };
-      }).filter(v => v.dealsGanados + v.contactosCreados + v.llamadas + v.reuniones + v.tareas > 0);
+      }); // sin filtro — todos los owners quedan para que el lookup por ID siempre funcione
 
       const totalCreados = dealsCreados.length;
       const totalGanados = dealsGanados.length;

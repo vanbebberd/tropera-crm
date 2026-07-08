@@ -1,12 +1,16 @@
 import React from 'react';
 
-export default function VendedorCards({ vendedores }) {
+export default function VendedorCards({ vendedores, onSelect }) {
   if (!vendedores?.length) return null;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {vendedores.map((v, i) => (
-        <div key={v.id} className="bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-3">
+        <div
+          key={v.id}
+          onClick={() => onSelect?.(v.id)}
+          className="bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-3 cursor-pointer hover:border-orange-500/50 hover:bg-gray-800/60 transition-colors"
+        >
           {/* Nombre */}
           <div className="flex items-center gap-2 border-b border-gray-800 pb-3">
             <div className="w-8 h-8 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400 font-bold text-sm">

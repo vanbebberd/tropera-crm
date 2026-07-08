@@ -143,8 +143,11 @@ export default function Dashboard({ onLogout }) {
           {/* Tarjetas por vendedor — solo cuando se ven todos */}
           {ownerFiltro === 'todos' && todos.length > 0 && (
             <div className="mt-6">
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Actividades por vendedor — semana actual</p>
-              <VendedorCards vendedores={todos} />
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">
+                Actividades por vendedor — semana actual
+                <span className="ml-2 text-gray-600 normal-case font-normal">· haz clic en una tarjeta para filtrar</span>
+              </p>
+              <VendedorCards vendedores={todos} onSelect={setOwnerFiltro} />
             </div>
           )}
         </section>

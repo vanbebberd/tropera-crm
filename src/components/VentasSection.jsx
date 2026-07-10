@@ -132,9 +132,7 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
               <tbody>
                 {vendedores.map((v, vi) => {
                   const totalLitros   = v.litros.reduce((a, b) => a + b, 0);
-                  const allClientes   = new Set();
-                  v.clientes.forEach((c, i) => allClientes.add(c));
-                  const totalClientes = v.clientes.reduce((a, b) => a + b, 0);
+                  const totalClientes = v.clientesUnicos ?? v.clientes.reduce((a, b) => a + b, 0);
                   const totalCierres  = v.cierres.reduce((a, b) => a + b, 0);
                   return (
                     <tr key={v.nombre} className="border-b border-gray-800/50 hover:bg-gray-800/20 transition-colors">

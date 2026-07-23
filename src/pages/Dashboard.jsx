@@ -43,7 +43,7 @@ export default function Dashboard({ onLogout }) {
   const allVendors   = semanaActual?.porVendedor || [];
   // todos: solo los que tienen alguna actividad esta semana (para tarjetas y tabla)
   const todos        = allVendors.filter(v =>
-    v.dealsGanados + v.dealsCreados + v.dealsVisitados + v.contactosCreados + v.llamadas + v.reuniones + v.tareas + v.tareasVencidas > 0
+    v.dealsGanados + v.dealsCreados + v.dealsVisitados + v.llamadas + v.reuniones + v.tareas + v.tareasVencidas > 0
   );
   const ownerNombre  = ownerFiltro === 'todos' ? null : owners.find(o => o.id === ownerFiltro)?.name;
 
@@ -128,7 +128,6 @@ export default function Dashboard({ onLogout }) {
             </div>
           ) : kpis ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <KPICard label="Contactos Creados"  value={kpis.contactosCreados} icon="👤" color="blue" />
               <KPICard label="Deals Creados"      value={kpis.dealsCreados}     icon="📋" color="indigo" />
               <KPICard label="Deals Visitados"    value={kpis.dealsVisitados}   icon="🏃" color="yellow" />
               <KPICard label="Deals Ganados"      value={kpis.dealsGanados}     icon="🏆" color="green" />
@@ -237,7 +236,7 @@ function HistorialTable({ semanas, ownerFiltro }) {
   const filas = semanas.map(s => {
     if (ownerFiltro === 'todos') return s;
     const v = s.porVendedor?.find(v => v.id === ownerFiltro);
-    return v ? { ...s, ...v } : { ...s, contactosCreados: 0, dealsCreados: 0, dealsVisitados: 0, dealsGanados: 0, tasaExito: 0, llamadas: 0, reuniones: 0, tareas: 0 };
+    return v ? { ...s, ...v } : { ...s, dealsCreados: 0, dealsVisitados: 0, dealsGanados: 0, tasaExito: 0, llamadas: 0, reuniones: 0, tareas: 0 };
   });
 
   return (
@@ -246,7 +245,6 @@ function HistorialTable({ semanas, ownerFiltro }) {
         <thead>
           <tr className="border-b border-gray-800">
             <th className="text-left px-4 py-3 text-gray-400 font-medium">Semana</th>
-            <th className="text-right px-4 py-3 text-gray-400 font-medium">Contactos</th>
             <th className="text-right px-4 py-3 text-gray-400 font-medium">Deals</th>
             <th className="text-right px-4 py-3 text-gray-400 font-medium">Visitados</th>
             <th className="text-right px-4 py-3 text-gray-400 font-medium">Ganados</th>
@@ -262,7 +260,6 @@ function HistorialTable({ semanas, ownerFiltro }) {
               <td className="px-4 py-3 font-medium">
                 {i === 0 ? <span className="text-orange-400">Esta semana</span> : <span className="text-gray-300">Sem. {s.label}</span>}
               </td>
-              <td className="px-4 py-3 text-right text-gray-300">{s.contactosCreados}</td>
               <td className="px-4 py-3 text-right text-gray-300">{s.dealsCreados}</td>
               <td className="px-4 py-3 text-right text-gray-300">{s.dealsVisitados}</td>
               <td className="px-4 py-3 text-right text-green-400 font-medium">{s.dealsGanados}</td>

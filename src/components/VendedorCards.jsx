@@ -19,15 +19,18 @@ export default function VendedorCards({ vendedores, onSelect }) {
             <span className="font-semibold text-white text-sm">{v.nombre}</span>
           </div>
 
-          {/* Métricas en grid 3x2 */}
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <Stat label="Contactos" value={v.contactosCreados} color="text-blue-400" />
+          {/* Métricas en grid 2x2 + velocidad */}
+          <div className="grid grid-cols-2 gap-2 text-center">
             <Stat label="Deals"     value={v.dealsCreados}     color="text-indigo-400" />
             <Stat label="Visitados" value={v.dealsVisitados}   color="text-yellow-400" />
             <Stat label="Ganados"   value={v.dealsGanados}     color="text-green-400" />
             <Stat label="Tasa"      value={`${v.tasaExito}%`}  color={v.tasaExito >= 50 ? 'text-green-400' : v.tasaExito >= 25 ? 'text-yellow-400' : 'text-red-400'} />
-            <Stat label="Velocidad" value={v.velocidadDias != null ? `${v.velocidadDias}d` : '—'} color={v.velocidadDias != null ? 'text-yellow-400' : 'text-gray-600'} sub={v.velocidadDias != null && v.velocidadDeals ? `${v.velocidadDeals} deal${v.velocidadDeals !== 1 ? 's' : ''}` : null} />
           </div>
+          {v.velocidadDias != null && (
+            <div className="text-center border-t border-gray-800 pt-2">
+              <Stat label="Velocidad de cierre" value={`${v.velocidadDias}d`} color="text-yellow-400" sub={v.velocidadDeals ? `${v.velocidadDeals} deal${v.velocidadDeals !== 1 ? 's' : ''} · 90d` : '90d'} />
+            </div>
+          )}
 
           {/* Actividades */}
           <div className="grid grid-cols-3 gap-2 text-center border-t border-gray-800 pt-3">

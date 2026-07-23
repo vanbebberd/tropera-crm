@@ -47,10 +47,6 @@ router.get('/resumen', async (req, res) => {
 
     await sleep(300);
 
-    const contactosAll = await search('contacts', dateFilter('createdate', rangeStart, rangeEnd),
-      ['createdate', 'hubspot_owner_id', 'firstname', 'lastname']);
-    await sleep(300);
-
     const dealsCreadosAll = await search('deals', dateFilter('createdate', rangeStart, rangeEnd),
       ['createdate', 'closedate', 'dealstage', 'hubspot_owner_id', 'dealname', 'amount']);
     await sleep(300);
@@ -119,7 +115,6 @@ router.get('/resumen', async (req, res) => {
     for (let w = 0; w < semanas; w++) {
       const { start, end, label } = weekRange(w);
 
-      const contactosCreados = contactosAll.filter(c => inRange(c.properties?.createdate,    start, end));
       const dealsCreados     = dealsCreadosAll.filter(d => inRange(d.properties?.createdate,  start, end));
       const dealsGanados     = dealsGanadosAll.filter(d => inRange(d.properties?.closedate,   start, end));
       const dealsVisitados   = dealsVisitadosAll.filter(d => inRange(d.properties?.createdate, start, end));
@@ -127,9 +122,8 @@ router.get('/resumen', async (req, res) => {
       const reuniones        = reunionesAll.filter(r => inRange(r.properties?.hs_createdate,  start, end));
       const tareas           = tareasAll.filter(t   => inRange(t.properties?.hs_createdate,   start, end));
 
-      const ganByOwner  = countByOwner(dealsGanados,    'hubspot_owner_id');
-      const creaByOwner = countByOwner(contactosCreados, 'hubspot_owner_id');
-      const visByOwner  = countByOwner(dealsVisitados,   'hubspot_owner_id');
+      const ganByOwner  = countByOwner(dealsGanados,  'hubspot_owner_id');
+      const visByOwner  = countByOwner(dealsVisitados, 'hubspot_owner_id');
       const dcreByOwner = countByOwner(dealsCreados,     'hubspot_owner_id');
       const llamByOwner = countByOwner(llamadas,         'hubspot_owner_id');
       const reunByOwner = countByOwner(reuniones,        'hubspot_owner_id');
@@ -142,7 +136,6 @@ router.get('/resumen', async (req, res) => {
         return {
           id: o.id,
           nombre: o.name,
-          contactosCreados: creaByOwner[o.id] || 0,
           dealsCreados:     dc,
           dealsVisitados:   visByOwner[o.id]  || 0,
           dealsGanados:     dg,
@@ -161,7 +154,6 @@ router.get('/resumen', async (req, res) => {
 
       result.push({
         semana: w, label,
-        contactosCreados: contactosCreados.length,
         dealsCreados:     totalCreados,
         dealsGanados:     totalGanados,
         dealsVisitados:   dealsVisitados.length,

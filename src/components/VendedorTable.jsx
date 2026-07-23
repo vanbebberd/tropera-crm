@@ -9,7 +9,6 @@ export default function VendedorTable({ vendedores, destacado }) {
         <thead>
           <tr className="border-b border-gray-800">
             <th className="text-left px-4 py-3 text-gray-400 font-medium">Vendedor</th>
-            <th className="text-right px-4 py-3 text-gray-400 font-medium">Contactos</th>
             <th className="text-right px-4 py-3 text-gray-400 font-medium">Deals</th>
             <th className="text-right px-4 py-3 text-gray-400 font-medium">Visitados</th>
             <th className="text-right px-4 py-3 text-gray-400 font-medium">Ganados</th>
@@ -34,7 +33,6 @@ export default function VendedorTable({ vendedores, destacado }) {
                     {v.nombre}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-right text-gray-300">{v.contactosCreados}</td>
                 <td className="px-4 py-3 text-right text-gray-300">{v.dealsCreados}</td>
                 <td className="px-4 py-3 text-right text-gray-300">{v.dealsVisitados}</td>
                 <td className="px-4 py-3 text-right">

@@ -10,7 +10,6 @@ export default function SemanalChart({ semanas, ownerFiltro }) {
       const v = s.porVendedor?.find(v => v.id === ownerFiltro);
       return {
         semana: label,
-        'Contactos': v?.contactosCreados || 0,
         'Deals creados': v?.dealsCreados || 0,
         'Visitados': v?.dealsVisitados || 0,
         'Ganados': v?.dealsGanados || 0,
@@ -18,7 +17,6 @@ export default function SemanalChart({ semanas, ownerFiltro }) {
     }
     return {
       semana: label,
-      'Contactos': s.contactosCreados,
       'Deals creados': s.dealsCreados,
       'Visitados': s.dealsVisitados,
       'Ganados': s.dealsGanados,
@@ -39,7 +37,7 @@ export default function SemanalChart({ semanas, ownerFiltro }) {
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-6">
       <div>
-        <p className="text-xs text-gray-500 mb-2">Deals y contactos por semana</p>
+        <p className="text-xs text-gray-500 mb-2">Deals por semana</p>
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dealsData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
@@ -48,7 +46,6 @@ export default function SemanalChart({ semanas, ownerFiltro }) {
               <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} allowDecimals={false} />
               <Tooltip {...tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Contactos"     fill="#3b82f6" radius={[3,3,0,0]} />
               <Bar dataKey="Deals creados" fill="#6366f1" radius={[3,3,0,0]} />
               <Bar dataKey="Visitados"     fill="#eab308" radius={[3,3,0,0]} />
               <Bar dataKey="Ganados"       fill="#22c55e" radius={[3,3,0,0]} />

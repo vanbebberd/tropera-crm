@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { api } from '../api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -199,7 +199,119 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* Velocidad de cierre por cliente */}
+          <VelocidadClientesTable vendedores={vendedores} colors={COLORS} />
         </>
+      )}
+    </div>
+  );
+}
+
+function VelocidadClientesTable({ vendedores, colors }) {
+  const [abierto, setAbierto] = useState(true);
+  const [busqueda, setBusqueda] = useState('');
+
+  const filas = useMemo(() => {
+    const todas = [];
+    vendedores.forEach((v, vi) => {
+      (v.clientesVelocidad || []).forEach(c => {
+        todas.push({ ...c, vendedor: v.nombre, colorIdx: vi });
+      });
+    });
+    if (busqueda.trim()) {
+      const q = busqueda.trim().toLowerCase();
+      return todas.filter(f => f.nombre.toLowerCase().includes(q) || f.vendedor.toLowerCase().includes(q));
+    }
+    return todas;
+  }, [vendedores, busqueda]);
+
+  const conVelocidad = filas.filter(f => f.velocidad !== null);
+  const sinVelocidad = filas.filter(f => f.velocidad === null);
+
+  function badge(v) {
+    if (v <= 1)  return 'bg-green-500/20 text-green-400 border border-green-500/30';
+    if (v <= 2)  return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+    if (v <= 3)  return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
+    return 'bg-red-500/20 text-red-400 border border-red-500/30';
+  }
+
+  return (
+    <div className="bg-gray-900 rounded-xl border border-gray-800">
+      <button
+        onClick={() => setAbierto(a => !a)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          Velocidad de compra por cliente
+          <span className="ml-2 text-gray-600 normal-case font-normal">— semanas promedio entre compras</span>
+        </span>
+        <span className="text-gray-500 text-sm">{abierto ? '▲' : '▼'}</span>
+      </button>
+
+      {abierto && (
+        <div className="border-t border-gray-800">
+          <div className="px-4 py-2">
+            <input
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder="Buscar cliente o vendedor..."
+              className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-orange-500 placeholder-gray-600"
+            />
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800 bg-gray-900/60">
+                  <th className="text-left px-4 py-2 text-gray-500 font-medium text-xs">Vendedor</th>
+                  <th className="text-left px-4 py-2 text-gray-500 font-medium text-xs">Cliente</th>
+                  <th className="text-right px-4 py-2 text-gray-500 font-medium text-xs">Semanas activo</th>
+                  <th className="text-right px-4 py-2 text-gray-500 font-medium text-xs">Vel. promedio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {conVelocidad.map((f, i) => (
+                  <tr key={`${f.vendedor}-${f.nombre}`} className="border-b border-gray-800/40 hover:bg-gray-800/20">
+                    <td className="px-4 py-2">
+                      <span className="text-xs font-medium" style={{ color: colors[f.colorIdx % colors.length] }}>
+                        {f.vendedor.split(' ')[0]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-300 text-xs">{f.nombre}</td>
+                    <td className="px-4 py-2 text-right text-gray-400 text-xs">{f.apariciones}</td>
+                    <td className="px-4 py-2 text-right">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge(f.velocidad)}`}>
+                        {f.velocidad === 1 ? '1 sem' : `${f.velocidad} sem`}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {sinVelocidad.length > 0 && (
+                  <>
+                    <tr className="border-b border-gray-800">
+                      <td colSpan={4} className="px-4 py-2 text-xs text-gray-600 italic">
+                        Una sola compra registrada ({sinVelocidad.length} clientes)
+                      </td>
+                    </tr>
+                    {sinVelocidad.map((f) => (
+                      <tr key={`${f.vendedor}-${f.nombre}`} className="border-b border-gray-800/40 hover:bg-gray-800/20 opacity-50">
+                        <td className="px-4 py-2">
+                          <span className="text-xs font-medium" style={{ color: colors[f.colorIdx % colors.length] }}>
+                            {f.vendedor.split(' ')[0]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-gray-400 text-xs">{f.nombre}</td>
+                        <td className="px-4 py-2 text-right text-gray-600 text-xs">1</td>
+                        <td className="px-4 py-2 text-right text-gray-600 text-xs">—</td>
+                      </tr>
+                    ))}
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );

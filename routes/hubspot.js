@@ -3,6 +3,7 @@ const { search, dateFilter, getOwners, weekRange, getDealStages } = require('../
 const router = express.Router();
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const SLEEP = 700; // ms entre llamadas a HubSpot search (límite: 4/seg)
 
 function countByOwner(items, ownerProp) {
   return items.reduce((acc, item) => {
@@ -51,34 +52,34 @@ router.get('/resumen', async (req, res) => {
         ])
       : [[...dateFilter('createdate', rangeStart, rangeEnd)]];
 
-    await sleep(300);
+    await sleep(SLEEP);
 
     const dealsCreadosAll = await search('deals',
       [...dateFilter('createdate', rangeStart, rangeEnd), ...pipelineFilter],
       ['createdate', 'closedate', 'dealstage', 'hubspot_owner_id', 'dealname', 'amount']);
-    await sleep(300);
+    await sleep(SLEEP);
 
     const dealsGanadosAll = await search('deals', closedWonGroups,
       ['createdate', 'closedate', 'hubspot_owner_id', 'amount']);
-    await sleep(300);
+    await sleep(SLEEP);
 
     const dealsVisitadosAll = await search('deals', visitadoGroups,
       ['createdate', 'dealstage', 'hubspot_owner_id']);
-    await sleep(300);
+    await sleep(SLEEP);
 
     const llamadasAll = await search('calls', dateFilter('hs_createdate', rangeStart, rangeEnd),
       ['hs_createdate', 'hubspot_owner_id', 'hs_call_status']);
-    await sleep(300);
+    await sleep(SLEEP);
 
     const reunionesAll = await search('meetings', dateFilter('hs_createdate', rangeStart, rangeEnd),
       ['hs_createdate', 'hubspot_owner_id']);
-    await sleep(300);
+    await sleep(SLEEP);
 
     const tareasAll = await search('tasks', [
       ...dateFilter('hs_createdate', rangeStart, rangeEnd),
       { propertyName: 'hs_task_status', operator: 'EQ', value: 'COMPLETED' },
     ], ['hs_createdate', 'hubspot_owner_id', 'hs_task_status']);
-    await sleep(300);
+    await sleep(SLEEP);
 
     // Deals ganados últimos 90 días — ventana fija para calcular velocidad estable
     const vel90Start = Date.now() - 90 * 24 * 60 * 60 * 1000;
@@ -91,7 +92,7 @@ router.get('/resumen', async (req, res) => {
       : [[...dateFilter('closedate', vel90Start, Date.now()), { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
     const dealsVel90 = await search('deals', vel90Groups,
       ['createdate', 'closedate', 'hubspot_owner_id']);
-    await sleep(300);
+    await sleep(SLEEP);
 
     // Velocidad rolling 90d por owner (días promedio creación → cierre)
     // closedate en HubSpot es medianoche UTC del día, createdate es timestamp exacto

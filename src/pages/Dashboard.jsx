@@ -24,12 +24,9 @@ export default function Dashboard({ onLogout }) {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [resumen, men, ven] = await Promise.all([
-        api.resumen(semanas, pipeline),
-        api.mensual(6, pipeline),
-        api.ventas(),
-      ]);
+      const resumen = await api.resumen(semanas, pipeline);
       setData(resumen);
+      const [men, ven] = await Promise.all([api.mensual(6, pipeline), api.ventas()]);
       setMensual(men);
       setVentas(ven);
       setLastUpdate(new Date());

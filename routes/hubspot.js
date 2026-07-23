@@ -30,13 +30,20 @@ router.get('/resumen', async (req, res) => {
     const [owners, stages] = await Promise.all([getOwners(), getDealStages()]);
     const ownerMap = Object.fromEntries(owners.map(o => [o.id, o.name]));
 
-    const closedWonFilter = stages.closedWonIds.length
-      ? [{ propertyName: 'dealstage', operator: 'IN', values: stages.closedWonIds }]
-      : [{ propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }];
+    // filterGroups = array de arrays → HubSpot los une con OR (un grupo por stage)
+    const closedWonGroups = stages.closedWonIds.length
+      ? stages.closedWonIds.map(id => [
+          ...dateFilter('closedate', rangeStart, rangeEnd),
+          { propertyName: 'dealstage', operator: 'EQ', value: id },
+        ])
+      : [[...dateFilter('closedate', rangeStart, rangeEnd), { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
 
-    const visitadoFilter = stages.visitadoIds.length
-      ? [{ propertyName: 'dealstage', operator: 'IN', values: stages.visitadoIds }]
-      : [{ propertyName: 'dealstage', operator: 'CONTAINS_TOKEN', value: 'visit' }];
+    const visitadoGroups = stages.visitadoIds.length
+      ? stages.visitadoIds.map(id => [
+          ...dateFilter('createdate', rangeStart, rangeEnd),
+          { propertyName: 'dealstage', operator: 'EQ', value: id },
+        ])
+      : [[...dateFilter('createdate', rangeStart, rangeEnd)]];
 
     await sleep(300);
 
@@ -48,16 +55,12 @@ router.get('/resumen', async (req, res) => {
       ['createdate', 'closedate', 'dealstage', 'hubspot_owner_id', 'dealname', 'amount']);
     await sleep(300);
 
-    const dealsGanadosAll = await search('deals', [
-      ...dateFilter('closedate', rangeStart, rangeEnd),
-      ...closedWonFilter,
-    ], ['createdate', 'closedate', 'hubspot_owner_id', 'amount']);
+    const dealsGanadosAll = await search('deals', closedWonGroups,
+      ['createdate', 'closedate', 'hubspot_owner_id', 'amount']);
     await sleep(300);
 
-    const dealsVisitadosAll = await search('deals', [
-      ...dateFilter('createdate', rangeStart, rangeEnd),
-      ...visitadoFilter,
-    ], ['createdate', 'dealstage', 'hubspot_owner_id']);
+    const dealsVisitadosAll = await search('deals', visitadoGroups,
+      ['createdate', 'dealstage', 'hubspot_owner_id']);
     await sleep(300);
 
     const llamadasAll = await search('calls', dateFilter('hs_createdate', rangeStart, rangeEnd),
@@ -76,10 +79,14 @@ router.get('/resumen', async (req, res) => {
 
     // Deals ganados últimos 90 días — ventana fija para calcular velocidad estable
     const vel90Start = Date.now() - 90 * 24 * 60 * 60 * 1000;
-    const dealsVel90 = await search('deals', [
-      ...dateFilter('closedate', vel90Start, Date.now()),
-      ...closedWonFilter,
-    ], ['createdate', 'closedate', 'hubspot_owner_id']);
+    const vel90Groups = stages.closedWonIds.length
+      ? stages.closedWonIds.map(id => [
+          ...dateFilter('closedate', vel90Start, Date.now()),
+          { propertyName: 'dealstage', operator: 'EQ', value: id },
+        ])
+      : [[...dateFilter('closedate', vel90Start, Date.now()), { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
+    const dealsVel90 = await search('deals', vel90Groups,
+      ['createdate', 'closedate', 'hubspot_owner_id']);
     await sleep(300);
 
     // Velocidad rolling 90d por owner (días promedio creación → cierre)
@@ -181,18 +188,19 @@ router.get('/mensual', async (req, res) => {
     const [owners, stages] = await Promise.all([getOwners(), getDealStages()]);
     const ownerMap = Object.fromEntries(owners.map(o => [o.id, o.name]));
 
-    const closedWonFilter = stages.closedWonIds.length
-      ? [{ propertyName: 'dealstage', operator: 'IN', values: stages.closedWonIds }]
-      : [{ propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }];
-
     const now   = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - meses + 1, 1).getTime();
     const end   = now.getTime();
 
-    const deals = await search('deals', [
-      ...dateFilter('closedate', start, end),
-      ...closedWonFilter,
-    ], ['closedate', 'hubspot_owner_id', 'amount', 'dealname']);
+    const mensualGroups = stages.closedWonIds.length
+      ? stages.closedWonIds.map(id => [
+          ...dateFilter('closedate', start, end),
+          { propertyName: 'dealstage', operator: 'EQ', value: id },
+        ])
+      : [[...dateFilter('closedate', start, end), { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
+
+    const deals = await search('deals', mensualGroups,
+      ['closedate', 'hubspot_owner_id', 'amount', 'dealname']);
 
     // Agrupar por mes (YYYY-MM)
     const byMonth = {};
@@ -233,29 +241,17 @@ router.get('/owners', async (req, res) => {
 // ── GET /api/hubspot/debug — diagnóstico de stages y deals recientes ──────────
 router.get('/debug', async (req, res) => {
   try {
-    const { get, search } = require('../lib/hubspot');
-
-    // Pipelines y stages reales del CRM
-    const pipelines = await get('/crm/v3/pipelines/deals');
-
-    // Últimos 10 deals con closedate (sin filtro de stage) para ver sus valores reales
-    const since = Date.now() - 180 * 24 * 60 * 60 * 1000; // 6 meses
-    const recentDeals = await search('deals',
-      [{ propertyName: 'closedate', operator: 'GTE', value: String(since) }],
-      ['dealname', 'dealstage', 'closedate', 'hubspot_owner_id']
-    );
-
+    const { get, getDealStages, getOwners } = require('../lib/hubspot');
+    const [stages, owners, pipelines] = await Promise.all([
+      getDealStages(), getOwners(), get('/crm/v3/pipelines/deals'),
+    ]);
     res.json({
+      stages,
+      owners,
       pipelines: (pipelines.results || []).map(p => ({
         id: p.id, label: p.label,
         stages: (p.stages || []).map(s => ({ id: s.id, label: s.label, probability: s.metadata?.probability }))
       })),
-      recentDeals: recentDeals.slice(0, 20).map(d => ({
-        name:  d.properties?.dealname,
-        stage: d.properties?.dealstage,
-        close: d.properties?.closedate,
-        owner: d.properties?.hubspot_owner_id,
-      }))
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -41,9 +41,9 @@ export default function Dashboard({ onLogout }) {
   const owners       = data?.owners || [];
   // allVendors: todos los owners (para lookup de KPIs al filtrar)
   const allVendors   = semanaActual?.porVendedor || [];
-  // todos: solo los que tienen actividad esta semana (para tarjetas y tabla)
+  // todos: solo los que tienen alguna actividad esta semana (para tarjetas y tabla)
   const todos        = allVendors.filter(v =>
-    v.dealsGanados + v.contactosCreados + v.llamadas + v.reuniones + v.tareas > 0
+    v.dealsGanados + v.dealsCreados + v.dealsVisitados + v.contactosCreados + v.llamadas + v.reuniones + v.tareas + v.tareasVencidas > 0
   );
   const ownerNombre  = ownerFiltro === 'todos' ? null : owners.find(o => o.id === ownerFiltro)?.name;
 

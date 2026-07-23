@@ -17,13 +17,18 @@ export default function Dashboard({ onLogout }) {
   const [error,       setError]       = useState('');
   const [loading,     setLoading]     = useState(true);
   const [semanas,     setSemanas]     = useState(4);
+  const [pipeline,    setPipeline]    = useState('all'); // 'tropera' | 'bennies' | 'all'
   const [ownerFiltro, setOwnerFiltro] = useState('todos');
   const [lastUpdate,  setLastUpdate]  = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [resumen, men, ven] = await Promise.all([api.resumen(semanas), api.mensual(6), api.ventas()]);
+      const [resumen, men, ven] = await Promise.all([
+        api.resumen(semanas, pipeline),
+        api.mensual(6, pipeline),
+        api.ventas(),
+      ]);
       setData(resumen);
       setMensual(men);
       setVentas(ven);
@@ -33,7 +38,7 @@ export default function Dashboard({ onLogout }) {
     } finally {
       setLoading(false);
     }
-  }, [semanas]);
+  }, [semanas, pipeline]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -87,8 +92,22 @@ export default function Dashboard({ onLogout }) {
           </div>
         )}
 
-        {/* Controles: semanas + filtro propietario */}
+        {/* Controles: pipeline + semanas + filtro propietario */}
         <div className="flex flex-wrap items-center gap-4">
+          {/* Toggle de pipeline */}
+          <div className="flex items-center bg-gray-900 border border-gray-700 rounded-lg p-0.5 gap-0.5">
+            {[
+              { key: 'all',     label: 'Ambas' },
+              { key: 'tropera', label: 'Tropera' },
+              { key: 'bennies', label: "Beni's" },
+            ].map(({ key, label }) => (
+              <button key={key} onClick={() => { setPipeline(key); setOwnerFiltro('todos'); }}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${pipeline === key ? 'bg-orange-500 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-400">Semanas:</span>
             {SEMANAS_OPTIONS.map(n => (
@@ -207,15 +226,17 @@ export default function Dashboard({ onLogout }) {
           </section>
         )}
 
-        {/* ── VENTAS DESDE EXCEL ── */}
-        <section>
-          <VentasSection
-            data={ventas}
-            onRefresh={() => api.ventas().then(setVentas)}
-            ownerFiltro={ownerFiltro}
-            ownerNombre={ownerNombre}
-          />
-        </section>
+        {/* ── VENTAS DESDE EXCEL — solo Tropera o Ambas ── */}
+        {pipeline !== 'bennies' && (
+          <section>
+            <VentasSection
+              data={ventas}
+              onRefresh={() => api.ventas().then(setVentas)}
+              ownerFiltro={ownerFiltro}
+              ownerNombre={ownerNombre}
+            />
+          </section>
+        )}
 
         {/* ── HISTORIAL — respeta el filtro ── */}
         {data?.semanas?.length > 1 && (

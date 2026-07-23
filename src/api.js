@@ -16,8 +16,8 @@ export const api = {
   login:   (username, password) =>
     fetch(`${BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) })
       .then(r => r.json()),
-  resumen: (semanas = 4) => req(`/hubspot/resumen?semanas=${semanas}&_=${Date.now()}`),
-  mensual: (meses = 6)   => req(`/hubspot/mensual?meses=${meses}&_=${Date.now()}`),
+  resumen: (semanas = 4, pipeline = 'all') => req(`/hubspot/resumen?semanas=${semanas}&pipeline=${pipeline}&_=${Date.now()}`),
+  mensual: (meses = 6,   pipeline = 'all') => req(`/hubspot/mensual?meses=${meses}&pipeline=${pipeline}&_=${Date.now()}`),
   owners:  ()            => req('/hubspot/owners'),
   ventas: async () => {
     const data = await req('/ventas');

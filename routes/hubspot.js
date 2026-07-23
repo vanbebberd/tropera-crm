@@ -22,13 +22,15 @@ function inRange(ts, start, end) {
 router.get('/resumen', async (req, res) => {
   try {
     const semanas = Math.min(parseInt(req.query.semanas) || 4, 12);
+    const pipeline = req.query.pipeline || 'all'; // 'tropera' | 'bennies' | 'all'
     const oldest  = weekRange(semanas - 1);
     const newest  = weekRange(0);
     const rangeStart = oldest.start;
     const rangeEnd   = newest.end;
 
-    const [owners, stages] = await Promise.all([getOwners(), getDealStages()]);
+    const [owners, allStages] = await Promise.all([getOwners(), getDealStages()]);
     const ownerMap = Object.fromEntries(owners.map(o => [o.id, o.name]));
+    const stages = allStages[pipeline] || allStages.all;
 
     // filterGroups = array de arrays → HubSpot los une con OR (un grupo por stage)
     const closedWonGroups = stages.closedWonIds.length
@@ -177,8 +179,10 @@ router.get('/resumen', async (req, res) => {
 router.get('/mensual', async (req, res) => {
   try {
     const meses = Math.min(parseInt(req.query.meses) || 6, 12);
-    const [owners, stages] = await Promise.all([getOwners(), getDealStages()]);
+    const pipeline = req.query.pipeline || 'all';
+    const [owners, allStages] = await Promise.all([getOwners(), getDealStages()]);
     const ownerMap = Object.fromEntries(owners.map(o => [o.id, o.name]));
+    const stages = allStages[pipeline] || allStages.all;
 
     const now   = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - meses + 1, 1).getTime();

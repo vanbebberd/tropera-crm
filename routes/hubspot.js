@@ -31,6 +31,10 @@ router.get('/resumen', async (req, res) => {
     const [owners, allStages] = await Promise.all([getOwners(), getDealStages()]);
     const ownerMap = Object.fromEntries(owners.map(o => [o.id, o.name]));
     const stages = allStages[pipeline] || allStages.all;
+    // Filtro extra por pipeline cuando se selecciona uno específico
+    const pipelineFilter = stages.pipelineId
+      ? [{ propertyName: 'pipeline', operator: 'EQ', value: stages.pipelineId }]
+      : [];
 
     // filterGroups = array de arrays → HubSpot los une con OR (un grupo por stage)
     const closedWonGroups = stages.closedWonIds.length
@@ -49,7 +53,8 @@ router.get('/resumen', async (req, res) => {
 
     await sleep(300);
 
-    const dealsCreadosAll = await search('deals', dateFilter('createdate', rangeStart, rangeEnd),
+    const dealsCreadosAll = await search('deals',
+      [...dateFilter('createdate', rangeStart, rangeEnd), ...pipelineFilter],
       ['createdate', 'closedate', 'dealstage', 'hubspot_owner_id', 'dealname', 'amount']);
     await sleep(300);
 
@@ -81,6 +86,7 @@ router.get('/resumen', async (req, res) => {
       ? stages.closedWonIds.map(id => [
           ...dateFilter('closedate', vel90Start, Date.now()),
           { propertyName: 'dealstage', operator: 'EQ', value: id },
+          ...pipelineFilter,
         ])
       : [[...dateFilter('closedate', vel90Start, Date.now()), { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
     const dealsVel90 = await search('deals', vel90Groups,
@@ -183,6 +189,9 @@ router.get('/mensual', async (req, res) => {
     const [owners, allStages] = await Promise.all([getOwners(), getDealStages()]);
     const ownerMap = Object.fromEntries(owners.map(o => [o.id, o.name]));
     const stages = allStages[pipeline] || allStages.all;
+    const pipelineFilter = stages.pipelineId
+      ? [{ propertyName: 'pipeline', operator: 'EQ', value: stages.pipelineId }]
+      : [];
 
     const now   = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - meses + 1, 1).getTime();
@@ -192,6 +201,7 @@ router.get('/mensual', async (req, res) => {
       ? stages.closedWonIds.map(id => [
           ...dateFilter('closedate', start, end),
           { propertyName: 'dealstage', operator: 'EQ', value: id },
+          ...pipelineFilter,
         ])
       : [[...dateFilter('closedate', start, end), { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
 

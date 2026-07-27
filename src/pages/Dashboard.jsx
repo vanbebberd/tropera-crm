@@ -8,13 +8,57 @@ import MensualChart from '../components/MensualChart';
 import VentasSection from '../components/VentasSection';
 import VendedorCards from '../components/VendedorCards';
 
-const SEMANAS_OPTIONS = [
-  { value: 1,  label: 'Esta semana', offset: 0 },
-  { value: 2,  label: 'Sem. pasada', offset: 1 },
-  { value: 4,  label: '1 mes',       offset: 0 },
-  { value: 8,  label: '2 meses',     offset: 0 },
-  { value: 12, label: '3 meses',     offset: 0 },
+const PERIODO_OPTIONS = [
+  { id: 'esta_semana',  label: 'Esta semana' },
+  { id: 'sem_pasada',   label: 'Sem. pasada' },
+  { id: 'mes_en_curso', label: 'Mes en curso' },
 ];
+
+function primerDiaMes() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+}
+
+// Suma todas las semanas en un solo objeto de KPIs (para "Mes en curso")
+function sumSemanas(semanas) {
+  if (!semanas?.length) return null;
+  const week0 = semanas[0]; // más reciente: para snapshots (tareasVencidas, velocidad)
+  const totalCreados = semanas.reduce((s, w) => s + (w.dealsCreados   || 0), 0);
+  const totalGanados = semanas.reduce((s, w) => s + (w.dealsGanados   || 0), 0);
+
+  // Suma métricas por vendedor a través de todas las semanas
+  const vMap = {};
+  semanas.forEach(w => {
+    (w.porVendedor || []).forEach(v => {
+      if (!vMap[v.id]) vMap[v.id] = { ...v, dealsCreados: 0, dealsGanados: 0, dealsVisitados: 0, llamadas: 0, reuniones: 0, tareas: 0 };
+      vMap[v.id].dealsCreados   += v.dealsCreados   || 0;
+      vMap[v.id].dealsGanados   += v.dealsGanados   || 0;
+      vMap[v.id].dealsVisitados += v.dealsVisitados || 0;
+      vMap[v.id].llamadas       += v.llamadas       || 0;
+      vMap[v.id].reuniones      += v.reuniones      || 0;
+      vMap[v.id].tareas         += v.tareas         || 0;
+      // snapshots de la semana más reciente
+      vMap[v.id].tareasVencidas = week0.porVendedor?.find(p => p.id === v.id)?.tareasVencidas ?? vMap[v.id].tareasVencidas;
+      if (v.velocidadDias !== null) { vMap[v.id].velocidadDias = v.velocidadDias; vMap[v.id].velocidadDeals = v.velocidadDeals; }
+    });
+  });
+  const porVendedor = Object.values(vMap).map(v => ({
+    ...v, tasaExito: v.dealsCreados > 0 ? Math.round((v.dealsGanados / v.dealsCreados) * 100) : 0,
+  }));
+
+  return {
+    ...week0,
+    dealsCreados:   totalCreados,
+    dealsGanados:   totalGanados,
+    dealsVisitados: semanas.reduce((s, w) => s + (w.dealsVisitados || 0), 0),
+    llamadas:       semanas.reduce((s, w) => s + (w.llamadas       || 0), 0),
+    reuniones:      semanas.reduce((s, w) => s + (w.reuniones      || 0), 0),
+    tareas:         semanas.reduce((s, w) => s + (w.tareas         || 0), 0),
+    tasaExito: totalCreados > 0 ? Math.round((totalGanados / totalCreados) * 100) : 0,
+    tareasVencidas: week0.tareasVencidas,
+    porVendedor,
+  };
+}
 
 export default function Dashboard({ onLogout }) {
   const [data,        setData]        = useState(null);
@@ -22,16 +66,17 @@ export default function Dashboard({ onLogout }) {
   const [ventas,      setVentas]      = useState(null);
   const [error,       setError]       = useState('');
   const [loading,     setLoading]     = useState(true);
-  const [semanas,     setSemanas]     = useState(4);
-  const [semanaOffset, setSemanaOffset] = useState(0);
-  const [pipeline,    setPipeline]    = useState('all'); // 'tropera' | 'bennies' | 'all'
+  const [periodo,     setPeriodo]     = useState('esta_semana');
+  const [pipeline,    setPipeline]    = useState('all');
   const [ownerFiltro, setOwnerFiltro] = useState('todos');
   const [lastUpdate,  setLastUpdate]  = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const resumen = await api.resumen(semanas, pipeline);
+      const desde = periodo === 'mes_en_curso' ? primerDiaMes() : null;
+      const semanas = periodo === 'sem_pasada' ? 2 : 1;
+      const resumen = await api.resumen(semanas, pipeline, desde);
       setData(resumen);
       const [men, ven] = await Promise.all([api.mensual(6, pipeline), api.ventas()]);
       setMensual(men);
@@ -42,21 +87,25 @@ export default function Dashboard({ onLogout }) {
     } finally {
       setLoading(false);
     }
-  }, [semanas, pipeline]);
+  }, [periodo, pipeline]);
 
   useEffect(() => { load(); }, [load]);
 
-  const semanaActual = data?.semanas?.[semanaOffset];
-  const owners       = data?.owners || [];
-  // allVendors: todos los owners (para lookup de KPIs al filtrar)
-  const allVendors   = semanaActual?.porVendedor || [];
-  // todos: solo los que tienen alguna actividad esta semana (para tarjetas y tabla)
-  const todos        = allVendors.filter(v =>
+  // semanaActual: semana 0 (esta sem), semana 1 (sem pasada), o suma del mes
+  const semanaActual = (() => {
+    if (!data?.semanas?.length) return null;
+    if (periodo === 'mes_en_curso') return sumSemanas(data.semanas);
+    if (periodo === 'sem_pasada')   return data.semanas[1] || data.semanas[0];
+    return data.semanas[0];
+  })();
+
+  const owners     = data?.owners || [];
+  const allVendors = semanaActual?.porVendedor || [];
+  const todos      = allVendors.filter(v =>
     v.dealsGanados + v.dealsCreados + v.dealsVisitados + v.llamadas + v.reuniones + v.tareas + v.tareasVencidas > 0
   );
-  const ownerNombre  = ownerFiltro === 'todos' ? null : owners.find(o => o.id === ownerFiltro)?.name;
+  const ownerNombre = ownerFiltro === 'todos' ? null : owners.find(o => o.id === ownerFiltro)?.name;
 
-  // KPIs: busca en allVendors (no en todos) para que siempre encuentre al vendedor
   const kpis = (() => {
     if (!semanaActual) return null;
     if (ownerFiltro === 'todos') return semanaActual;
@@ -64,7 +113,6 @@ export default function Dashboard({ onLogout }) {
     return v ? { ...semanaActual, ...v } : semanaActual;
   })();
 
-  // Velocidad promedio general (todos los vendedores con datos, últimos 90d)
   const velocidadInfo = (() => {
     const conDatos = allVendors.filter(v => v.velocidadDias !== null);
     if (!conDatos.length) return null;
@@ -112,17 +160,13 @@ export default function Dashboard({ onLogout }) {
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">Período:</span>
-            {SEMANAS_OPTIONS.map(({ value, label, offset }) => {
-              const active = semanas === value && semanaOffset === offset;
-              return (
-                <button key={label} onClick={() => { setSemanas(value); setSemanaOffset(offset); }}
-                  className={`px-3 py-1 rounded text-sm transition-colors ${active ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-                  {label}
-                </button>
-              );
-            })}
+          <div className="flex items-center bg-gray-900 border border-gray-700 rounded-lg p-0.5 gap-0.5">
+            {PERIODO_OPTIONS.map(({ id, label }) => (
+              <button key={id} onClick={() => { setPeriodo(id); setOwnerFiltro('todos'); }}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${periodo === id ? 'bg-orange-500 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+                {label}
+              </button>
+            ))}
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
@@ -144,8 +188,9 @@ export default function Dashboard({ onLogout }) {
         {/* ── KPIs — totales o por vendedor si hay filtro ── */}
         <section>
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-            {semanaOffset === 0 ? 'Resumen semana actual' : 'Resumen semana pasada'}
-            {semanaActual?.label && <span className="text-orange-400 normal-case ml-2">({semanaActual.label})</span>}
+            {periodo === 'mes_en_curso' ? 'Resumen mes en curso' : periodo === 'sem_pasada' ? 'Resumen semana pasada' : 'Resumen semana actual'}
+            {periodo !== 'mes_en_curso' && semanaActual?.label && <span className="text-orange-400 normal-case ml-2">({semanaActual.label})</span>}
+            {periodo === 'mes_en_curso' && <span className="text-orange-400 normal-case ml-2">({new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })})</span>}
             {ownerNombre && <span className="text-blue-400 normal-case ml-2">— {ownerNombre}</span>}
           </h2>
           {loading && !data ? (

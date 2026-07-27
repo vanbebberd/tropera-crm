@@ -16,7 +16,12 @@ export const api = {
   login:   (username, password) =>
     fetch(`${BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) })
       .then(r => r.json()),
-  resumen: (semanas = 4, pipeline = 'all') => req(`/hubspot/resumen?semanas=${semanas}&pipeline=${pipeline}&_=${Date.now()}`),
+  resumen: (semanas = 4, pipeline = 'all', desde = null) => {
+    const qs = desde
+      ? `pipeline=${pipeline}&desde=${desde}&_=${Date.now()}`
+      : `semanas=${semanas}&pipeline=${pipeline}&_=${Date.now()}`;
+    return req(`/hubspot/resumen?${qs}`);
+  },
   mensual: (meses = 6,   pipeline = 'all') => req(`/hubspot/mensual?meses=${meses}&pipeline=${pipeline}&_=${Date.now()}`),
   owners:  ()            => req('/hubspot/owners'),
   ventas: async () => {

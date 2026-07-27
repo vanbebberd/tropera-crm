@@ -1,5 +1,5 @@
 const express = require('express');
-const { search, dateFilter, getOwners, weekRange, getDealStages } = require('../lib/hubspot');
+const { search, dateFilter, getOwners, weekRange, weeksInRange, getDealStages } = require('../lib/hubspot');
 const router = express.Router();
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -19,15 +19,25 @@ function inRange(ts, start, end) {
   return t >= start && t <= end;
 }
 
-// ── GET /api/hubspot/resumen?semanas=4 ───────────────────────────────────────
+// ── GET /api/hubspot/resumen?semanas=4&pipeline=all&desde=ts ────────────────
 router.get('/resumen', async (req, res) => {
   try {
-    const semanas = Math.min(parseInt(req.query.semanas) || 4, 12);
-    const pipeline = req.query.pipeline || 'all'; // 'tropera' | 'bennies' | 'all'
-    const oldest  = weekRange(semanas - 1);
-    const newest  = weekRange(0);
-    const rangeStart = oldest.start;
-    const rangeEnd   = newest.end;
+    const pipeline = req.query.pipeline || 'all';
+
+    // Rango: modo explícito (desde) o por semanas
+    let rangeStart, rangeEnd, weeksList;
+    if (req.query.desde) {
+      rangeStart = parseInt(req.query.desde);
+      rangeEnd   = Date.now();
+      weeksList  = weeksInRange(rangeStart, rangeEnd);
+    } else {
+      const semanas = Math.min(parseInt(req.query.semanas) || 4, 12);
+      const oldest  = weekRange(semanas - 1);
+      const newest  = weekRange(0);
+      rangeStart = oldest.start;
+      rangeEnd   = newest.end;
+      weeksList  = Array.from({ length: semanas }, (_, w) => weekRange(w));
+    }
 
     const [owners, allStages] = await Promise.all([getOwners(), getDealStages()]);
     const ownerMap = Object.fromEntries(owners.map(o => [o.id, o.name]));
@@ -121,59 +131,56 @@ router.get('/resumen', async (req, res) => {
     // Filtrar por semana y calcular métricas en JS
     const result = [];
 
-    for (let w = 0; w < semanas; w++) {
-      const { start, end, label } = weekRange(w);
+    weeksList.forEach(({ start, end, label }, i) => {
+      const dealsCreados   = dealsCreadosAll.filter(d => inRange(d.properties?.createdate,  start, end));
+      const dealsGanados   = dealsGanadosAll.filter(d => inRange(d.properties?.closedate,   start, end));
+      const dealsVisitados = dealsVisitadosAll.filter(d => inRange(d.properties?.createdate, start, end));
+      const llamadas       = llamadasAll.filter(l => inRange(l.properties?.hs_createdate,   start, end));
+      const reuniones      = reunionesAll.filter(r => inRange(r.properties?.hs_createdate,  start, end));
+      const tareas         = tareasAll.filter(t   => inRange(t.properties?.hs_createdate,   start, end));
 
-      const dealsCreados     = dealsCreadosAll.filter(d => inRange(d.properties?.createdate,  start, end));
-      const dealsGanados     = dealsGanadosAll.filter(d => inRange(d.properties?.closedate,   start, end));
-      const dealsVisitados   = dealsVisitadosAll.filter(d => inRange(d.properties?.createdate, start, end));
-      const llamadas         = llamadasAll.filter(l => inRange(l.properties?.hs_createdate,   start, end));
-      const reuniones        = reunionesAll.filter(r => inRange(r.properties?.hs_createdate,  start, end));
-      const tareas           = tareasAll.filter(t   => inRange(t.properties?.hs_createdate,   start, end));
-
-      const ganByOwner  = countByOwner(dealsGanados,  'hubspot_owner_id');
-      const visByOwner  = countByOwner(dealsVisitados, 'hubspot_owner_id');
-      const dcreByOwner = countByOwner(dealsCreados,     'hubspot_owner_id');
-      const llamByOwner = countByOwner(llamadas,         'hubspot_owner_id');
-      const reunByOwner = countByOwner(reuniones,        'hubspot_owner_id');
-      const tarByOwner  = countByOwner(tareas,           'hubspot_owner_id');
+      const ganByOwner  = countByOwner(dealsGanados,   'hubspot_owner_id');
+      const visByOwner  = countByOwner(dealsVisitados,  'hubspot_owner_id');
+      const dcreByOwner = countByOwner(dealsCreados,    'hubspot_owner_id');
+      const llamByOwner = countByOwner(llamadas,        'hubspot_owner_id');
+      const reunByOwner = countByOwner(reuniones,       'hubspot_owner_id');
+      const tarByOwner  = countByOwner(tareas,          'hubspot_owner_id');
 
       const porVendedor = owners.map(o => {
         const vel = velocidadRolling[o.id];
         const dc  = dcreByOwner[o.id] || 0;
         const dg  = ganByOwner[o.id]  || 0;
         return {
-          id: o.id,
-          nombre: o.name,
-          dealsCreados:     dc,
-          dealsVisitados:   visByOwner[o.id]  || 0,
-          dealsGanados:     dg,
+          id: o.id, nombre: o.name,
+          dealsCreados:   dc,
+          dealsVisitados: visByOwner[o.id]  || 0,
+          dealsGanados:   dg,
           tasaExito: dc > 0 ? Math.round((dg / dc) * 100) : 0,
-          llamadas:         llamByOwner[o.id] || 0,
-          reuniones:        reunByOwner[o.id] || 0,
-          tareas:           tarByOwner[o.id]  || 0,
-          tareasVencidas:   tarVenByOwner[o.id] || 0,
-          velocidadDias: vel ? Math.round(vel.total / vel.count) : null,
-          velocidadDeals:   vel ? vel.count : 0,
+          llamadas:       llamByOwner[o.id] || 0,
+          reuniones:      reunByOwner[o.id] || 0,
+          tareas:         tarByOwner[o.id]  || 0,
+          tareasVencidas: tarVenByOwner[o.id] || 0,
+          velocidadDias:  vel ? Math.round(vel.total / vel.count) : null,
+          velocidadDeals: vel ? vel.count : 0,
         };
-      }); // sin filtro — todos los owners quedan para que el lookup por ID siempre funcione
+      });
 
       const totalCreados = dealsCreados.length;
       const totalGanados = dealsGanados.length;
 
       result.push({
-        semana: w, label,
-        dealsCreados:     totalCreados,
-        dealsGanados:     totalGanados,
-        dealsVisitados:   dealsVisitados.length,
+        semana: i, label, startTs: start, endTs: end,
+        dealsCreados:   totalCreados,
+        dealsGanados:   totalGanados,
+        dealsVisitados: dealsVisitados.length,
         tasaExito: totalCreados > 0 ? Math.round((totalGanados / totalCreados) * 100) : 0,
         llamadas:  llamadas.length,
         reuniones: reuniones.length,
         tareas:    tareas.length,
-        tareasVencidas: w === 0 ? tareasVencidasAll.length : null,
+        tareasVencidas: i === 0 ? tareasVencidasAll.length : null,
         porVendedor,
       });
-    }
+    });
 
     res.json({ semanas: result, owners });
   } catch (err) {

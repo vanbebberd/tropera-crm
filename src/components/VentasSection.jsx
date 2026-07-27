@@ -212,6 +212,9 @@ function VelocidadClientesTable({ vendedores, colors }) {
   const [abierto, setAbierto] = useState(true);
   const [busqueda, setBusqueda] = useState('');
 
+  // Detectar si los datos tienen el campo clientesVelocidad (requiere re-subir Excel)
+  const tieneVelocidad = vendedores.some(v => Array.isArray(v.clientesVelocidad));
+
   const filas = useMemo(() => {
     const todas = [];
     vendedores.forEach((v, vi) => {
@@ -249,7 +252,14 @@ function VelocidadClientesTable({ vendedores, colors }) {
         <span className="text-gray-500 text-sm">{abierto ? '▲' : '▼'}</span>
       </button>
 
-      {abierto && (
+      {abierto && !tieneVelocidad && (
+        <div className="border-t border-gray-800 px-4 py-6 text-center">
+          <p className="text-sm text-gray-400">Sube el Excel de nuevo para calcular la velocidad por cliente</p>
+          <p className="text-xs text-gray-600 mt-1">Esta sección requiere que el archivo sea procesado con la versión actualizada</p>
+        </div>
+      )}
+
+      {abierto && tieneVelocidad && (
         <div className="border-t border-gray-800">
           <div className="px-4 py-2">
             <input

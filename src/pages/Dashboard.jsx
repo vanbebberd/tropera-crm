@@ -8,7 +8,12 @@ import MensualChart from '../components/MensualChart';
 import VentasSection from '../components/VentasSection';
 import VendedorCards from '../components/VendedorCards';
 
-const SEMANAS_OPTIONS = [1, 4, 8, 12];
+const SEMANAS_OPTIONS = [
+  { value: 1,  label: 'Esta semana' },
+  { value: 4,  label: '1 mes'       },
+  { value: 8,  label: '2 meses'     },
+  { value: 12, label: '3 meses'     },
+];
 
 export default function Dashboard({ onLogout }) {
   const [data,        setData]        = useState(null);
@@ -106,11 +111,11 @@ export default function Dashboard({ onLogout }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">Semanas:</span>
-            {SEMANAS_OPTIONS.map(n => (
-              <button key={n} onClick={() => setSemanas(n)}
-                className={`px-3 py-1 rounded text-sm transition-colors ${semanas === n ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-                {n}
+            <span className="text-sm text-gray-400">Período:</span>
+            {SEMANAS_OPTIONS.map(({ value, label }) => (
+              <button key={value} onClick={() => setSemanas(value)}
+                className={`px-3 py-1 rounded text-sm transition-colors ${semanas === value ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                {label}
               </button>
             ))}
           </div>

@@ -209,10 +209,8 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
 }
 
 function VelocidadClientesTable({ vendedores, colors }) {
-  const [abierto, setAbierto] = useState(true);
   const [busqueda, setBusqueda] = useState('');
 
-  // Detectar si los datos tienen el campo clientesVelocidad (requiere re-subir Excel)
   const tieneVelocidad = vendedores.some(v => Array.isArray(v.clientesVelocidad));
 
   const filas = useMemo(() => {
@@ -241,35 +239,28 @@ function VelocidadClientesTable({ vendedores, colors }) {
 
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800">
-      <button
-        onClick={() => setAbierto(a => !a)}
-        className="w-full flex items-center justify-between px-4 py-3 text-left"
-      >
+      <div className="px-4 py-3 flex items-center justify-between">
         <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
           Velocidad de compra por cliente
           <span className="ml-2 text-gray-600 normal-case font-normal">— semanas promedio entre compras</span>
         </span>
-        <span className="text-gray-500 text-sm">{abierto ? '▲' : '▼'}</span>
-      </button>
+        {tieneVelocidad && (
+          <input
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar..."
+            className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-3 py-1 w-44 focus:outline-none focus:border-orange-500 placeholder-gray-600"
+          />
+        )}
+      </div>
 
-      {abierto && !tieneVelocidad && (
-        <div className="border-t border-gray-800 px-4 py-6 text-center">
-          <p className="text-sm text-gray-400">Sube el Excel de nuevo para calcular la velocidad por cliente</p>
-          <p className="text-xs text-gray-600 mt-1">Esta sección requiere que el archivo sea procesado con la versión actualizada</p>
-        </div>
-      )}
-
-      {abierto && tieneVelocidad && (
-        <div className="border-t border-gray-800">
-          <div className="px-4 py-2">
-            <input
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar cliente o vendedor..."
-              className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-orange-500 placeholder-gray-600"
-            />
+      <div className="border-t border-gray-800">
+        {!tieneVelocidad ? (
+          <div className="px-4 py-6 text-center">
+            <p className="text-sm text-gray-400">Sube el Excel de nuevo para calcular la velocidad por cliente</p>
+            <p className="text-xs text-gray-600 mt-1">Requiere que el archivo sea procesado con la versión actualizada</p>
           </div>
-
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -281,7 +272,7 @@ function VelocidadClientesTable({ vendedores, colors }) {
                 </tr>
               </thead>
               <tbody>
-                {conVelocidad.map((f, i) => (
+                {conVelocidad.map(f => (
                   <tr key={`${f.vendedor}-${f.nombre}`} className="border-b border-gray-800/40 hover:bg-gray-800/20">
                     <td className="px-4 py-2">
                       <span className="text-xs font-medium" style={{ color: colors[f.colorIdx % colors.length] }}>
@@ -304,7 +295,7 @@ function VelocidadClientesTable({ vendedores, colors }) {
                         Una sola compra registrada ({sinVelocidad.length} clientes)
                       </td>
                     </tr>
-                    {sinVelocidad.map((f) => (
+                    {sinVelocidad.map(f => (
                       <tr key={`${f.vendedor}-${f.nombre}`} className="border-b border-gray-800/40 hover:bg-gray-800/20 opacity-50">
                         <td className="px-4 py-2">
                           <span className="text-xs font-medium" style={{ color: colors[f.colorIdx % colors.length] }}>
@@ -321,8 +312,8 @@ function VelocidadClientesTable({ vendedores, colors }) {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

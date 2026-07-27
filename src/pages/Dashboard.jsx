@@ -9,10 +9,11 @@ import VentasSection from '../components/VentasSection';
 import VendedorCards from '../components/VendedorCards';
 
 const SEMANAS_OPTIONS = [
-  { value: 1,  label: 'Esta semana' },
-  { value: 4,  label: '1 mes'       },
-  { value: 8,  label: '2 meses'     },
-  { value: 12, label: '3 meses'     },
+  { value: 1,  label: 'Esta semana', offset: 0 },
+  { value: 2,  label: 'Sem. pasada', offset: 1 },
+  { value: 4,  label: '1 mes',       offset: 0 },
+  { value: 8,  label: '2 meses',     offset: 0 },
+  { value: 12, label: '3 meses',     offset: 0 },
 ];
 
 export default function Dashboard({ onLogout }) {
@@ -22,6 +23,7 @@ export default function Dashboard({ onLogout }) {
   const [error,       setError]       = useState('');
   const [loading,     setLoading]     = useState(true);
   const [semanas,     setSemanas]     = useState(4);
+  const [semanaOffset, setSemanaOffset] = useState(0);
   const [pipeline,    setPipeline]    = useState('all'); // 'tropera' | 'bennies' | 'all'
   const [ownerFiltro, setOwnerFiltro] = useState('todos');
   const [lastUpdate,  setLastUpdate]  = useState(null);
@@ -44,7 +46,7 @@ export default function Dashboard({ onLogout }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const semanaActual = data?.semanas?.[0];
+  const semanaActual = data?.semanas?.[semanaOffset];
   const owners       = data?.owners || [];
   // allVendors: todos los owners (para lookup de KPIs al filtrar)
   const allVendors   = semanaActual?.porVendedor || [];
@@ -112,12 +114,15 @@ export default function Dashboard({ onLogout }) {
 
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-400">Período:</span>
-            {SEMANAS_OPTIONS.map(({ value, label }) => (
-              <button key={value} onClick={() => setSemanas(value)}
-                className={`px-3 py-1 rounded text-sm transition-colors ${semanas === value ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-                {label}
-              </button>
-            ))}
+            {SEMANAS_OPTIONS.map(({ value, label, offset }) => {
+              const active = semanas === value && semanaOffset === offset;
+              return (
+                <button key={label} onClick={() => { setSemanas(value); setSemanaOffset(offset); }}
+                  className={`px-3 py-1 rounded text-sm transition-colors ${active ? 'bg-orange-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                  {label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
@@ -139,7 +144,7 @@ export default function Dashboard({ onLogout }) {
         {/* ── KPIs — totales o por vendedor si hay filtro ── */}
         <section>
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-            Resumen semana actual
+            {semanaOffset === 0 ? 'Resumen semana actual' : 'Resumen semana pasada'}
             {semanaActual?.label && <span className="text-orange-400 normal-case ml-2">({semanaActual.label})</span>}
             {ownerNombre && <span className="text-blue-400 normal-case ml-2">— {ownerNombre}</span>}
           </h2>

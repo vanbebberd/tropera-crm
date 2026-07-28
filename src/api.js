@@ -22,7 +22,8 @@ export const api = {
       : `semanas=${semanas}&pipeline=${pipeline}&_=${Date.now()}`;
     return req(`/hubspot/resumen?${qs}`);
   },
-  mensual: (meses = 6,   pipeline = 'all') => req(`/hubspot/mensual?meses=${meses}&pipeline=${pipeline}&_=${Date.now()}`),
+  mensual:       (meses = 6, pipeline = 'all') => req(`/hubspot/mensual?meses=${meses}&pipeline=${pipeline}&_=${Date.now()}`),
+  pipelineStats: (pipeline = 'all', dias = 7)  => req(`/hubspot/pipeline-stats?pipeline=${pipeline}&diasInactividad=${dias}&_=${Date.now()}`),
   owners:  ()            => req('/hubspot/owners'),
   ventas: async () => {
     const data = await req('/ventas');

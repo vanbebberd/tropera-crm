@@ -248,6 +248,110 @@ router.get('/mensual', async (req, res) => {
   }
 });
 
+// ── GET /api/hubspot/pipeline-stats?pipeline=all&diasInactividad=7 ────────────
+router.get('/pipeline-stats', async (req, res) => {
+  try {
+    const pipeline = req.query.pipeline || 'all';
+    const umbralDias = parseInt(req.query.diasInactividad) || 7;
+    const umbralMs   = umbralDias * 24 * 60 * 60 * 1000;
+
+    const [owners, allStages, pipelines] = await Promise.all([
+      getOwners(),
+      getDealStages(),
+      require('../lib/hubspot').get('/crm/v3/pipelines/deals'),
+    ]);
+    const ownerMap = Object.fromEntries(owners.map(o => [o.id, o.name]));
+    const stages   = allStages[pipeline] || allStages.all;
+
+    // Mapa stage_id → label de etapa
+    const stageLabels = {};
+    (pipelines.results || []).forEach(p => {
+      (p.stages || []).forEach(s => { stageLabels[s.id] = s.label; });
+    });
+
+    // IDs de todas las etapas no-cerradas (abiertas)
+    const closedIds = new Set(stages.closedWonIds);
+    const allOpenStageIds = Object.keys(stageLabels).filter(id => !closedIds.has(id));
+
+    // Filtro de pipeline
+    const pipelineFilter = stages.pipelineId
+      ? [{ propertyName: 'pipeline', operator: 'EQ', value: stages.pipelineId }]
+      : [];
+
+    // ── 1. Deals abiertos — actividad reciente ───────────────────────────────
+    await sleep(SLEEP);
+    const openDeals = await search('deals',
+      [...pipelineFilter,
+       { propertyName: 'hs_is_closed', operator: 'EQ', value: 'false' }],
+      ['dealname', 'dealstage', 'hubspot_owner_id', 'hs_last_activity_date', 'createdate', 'amount']);
+
+    const ahora = Date.now();
+    const dealsInactivos = openDeals
+      .filter(d => {
+        const lastAct = d.properties?.hs_last_activity_date;
+        if (!lastAct) return true; // sin actividad registrada = inactivo
+        const ts = typeof lastAct === 'string' && lastAct.includes('-')
+          ? new Date(lastAct).getTime() : parseInt(lastAct);
+        return (ahora - ts) > umbralMs;
+      })
+      .map(d => {
+        const lastAct = d.properties?.hs_last_activity_date;
+        const ts = lastAct
+          ? (typeof lastAct === 'string' && lastAct.includes('-')
+              ? new Date(lastAct).getTime() : parseInt(lastAct))
+          : null;
+        const oid = String(d.properties?.hubspot_owner_id || '');
+        return {
+          id: d.id,
+          nombre: d.properties?.dealname || `Deal ${d.id}`,
+          etapa:  stageLabels[d.properties?.dealstage] || d.properties?.dealstage || '—',
+          owner:  ownerMap[oid] || oid || 'Sin asignar',
+          diasSinActividad: ts ? Math.floor((ahora - ts) / 86400000) : null,
+        };
+      })
+      .sort((a, b) => (b.diasSinActividad ?? 999) - (a.diasSinActividad ?? 999));
+
+    // ── 2. Tiempo promedio por etapa (deals cerrados) ────────────────────────
+    await sleep(SLEEP);
+    const timeProps = allOpenStageIds.map(id => `hs_time_in_${id}`);
+    const closedWonGroups = stages.closedWonIds.length
+      ? stages.closedWonIds.map(id => [
+          { propertyName: 'dealstage', operator: 'EQ', value: id },
+          ...pipelineFilter,
+        ])
+      : [[{ propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
+
+    const closedDeals = await search('deals', closedWonGroups, timeProps);
+
+    // Promediar hs_time_in_{id} por etapa
+    const tiempoAcum = {};
+    closedDeals.forEach(d => {
+      allOpenStageIds.forEach(stageId => {
+        const val = parseFloat(d.properties?.[`hs_time_in_${stageId}`] || 0);
+        if (val > 0) {
+          if (!tiempoAcum[stageId]) tiempoAcum[stageId] = { total: 0, count: 0 };
+          tiempoAcum[stageId].total += val;
+          tiempoAcum[stageId].count += 1;
+        }
+      });
+    });
+
+    const tiempoPorEtapa = Object.entries(tiempoAcum)
+      .map(([id, { total, count }]) => ({
+        etapa:        stageLabels[id] || id,
+        promedioDias: Math.round(total / count / 86400000),
+        deals:        count,
+      }))
+      .filter(e => e.promedioDias > 0)
+      .sort((a, b) => b.promedioDias - a.promedioDias);
+
+    res.json({ dealsInactivos, tiempoPorEtapa, umbralDias });
+  } catch (err) {
+    console.error('[hubspot] pipeline-stats error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/owners', async (req, res) => {
   try { res.json(await getOwners()); }
   catch (err) { res.status(500).json({ error: err.message }); }

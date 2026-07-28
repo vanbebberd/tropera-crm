@@ -7,6 +7,8 @@ import VelocidadChart from '../components/VelocidadChart';
 import MensualChart from '../components/MensualChart';
 import VentasSection from '../components/VentasSection';
 import VendedorCards from '../components/VendedorCards';
+import ClientesInsights from '../components/ClientesInsights';
+import PipelineStats from '../components/PipelineStats';
 
 const PERIODO_OPTIONS = [
   { id: 'esta_semana',  label: 'Esta semana' },
@@ -61,15 +63,17 @@ function sumSemanas(semanas) {
 }
 
 export default function Dashboard({ onLogout }) {
-  const [data,        setData]        = useState(null);
-  const [mensual,     setMensual]     = useState(null);
-  const [ventas,      setVentas]      = useState(null);
-  const [error,       setError]       = useState('');
-  const [loading,     setLoading]     = useState(true);
-  const [periodo,     setPeriodo]     = useState('esta_semana');
-  const [pipeline,    setPipeline]    = useState('all');
-  const [ownerFiltro, setOwnerFiltro] = useState('todos');
-  const [lastUpdate,  setLastUpdate]  = useState(null);
+  const [data,          setData]          = useState(null);
+  const [mensual,       setMensual]       = useState(null);
+  const [ventas,        setVentas]        = useState(null);
+  const [pipeStats,     setPipeStats]     = useState(null);
+  const [pipeLoading,   setPipeLoading]   = useState(false);
+  const [error,         setError]         = useState('');
+  const [loading,       setLoading]       = useState(true);
+  const [periodo,       setPeriodo]       = useState('esta_semana');
+  const [pipeline,      setPipeline]      = useState('all');
+  const [ownerFiltro,   setOwnerFiltro]   = useState('todos');
+  const [lastUpdate,    setLastUpdate]    = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -82,6 +86,10 @@ export default function Dashboard({ onLogout }) {
       setMensual(men);
       setVentas(ven);
       setLastUpdate(new Date());
+      // Pipeline stats se carga aparte para no bloquear la UI principal
+      setPipeLoading(true);
+      api.pipelineStats(pipeline).then(ps => { setPipeStats(ps); setPipeLoading(false); })
+        .catch(() => setPipeLoading(false));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -289,6 +297,30 @@ export default function Dashboard({ onLogout }) {
             />
           </section>
         )}
+
+        {/* ── TOP CLIENTES + EN RIESGO — solo si hay datos Excel ── */}
+        {pipeline !== 'bennies' && ventas?.vendedores?.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+              Clientes
+              {ownerNombre && <span className="text-blue-400 normal-case ml-2">— {ownerNombre}</span>}
+            </h2>
+            <ClientesInsights
+              vendedores={ventas.vendedores}
+              ownerFiltro={ownerFiltro}
+              ownerNombre={ownerNombre}
+            />
+          </section>
+        )}
+
+        {/* ── PIPELINE STATS — deals inactivos + tiempo por etapa ── */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+            Pipeline — actividad y tiempos
+            {ownerNombre && <span className="text-blue-400 normal-case ml-2">— {ownerNombre}</span>}
+          </h2>
+          <PipelineStats data={pipeStats} loading={pipeLoading} />
+        </section>
 
         {/* ── HISTORIAL — respeta el filtro ── */}
         {data?.semanas?.length > 1 && (

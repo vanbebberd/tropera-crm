@@ -203,24 +203,38 @@ router.get('/mensual', async (req, res) => {
 
     const now   = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - meses + 1, 1).getTime();
-    const end   = now.getTime();
 
+    // Traer deals ganados por stage (sin filtro de fecha en HubSpot para no perder
+    // deals con closedate mal configurada). Usamos hs_date_entered_{id} para saber
+    // cuándo realmente pasó a ganado, con closedate como fallback.
+    const wonDateProps = stages.closedWonIds.map(id => `hs_date_entered_${id}`);
     const mensualGroups = stages.closedWonIds.length
       ? stages.closedWonIds.map(id => [
-          ...dateFilter('closedate', start, end),
           { propertyName: 'dealstage', operator: 'EQ', value: id },
           ...pipelineFilter,
         ])
-      : [[...dateFilter('closedate', start, end), { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
+      : [[{ propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
 
     const deals = await search('deals', mensualGroups,
-      ['closedate', 'hubspot_owner_id', 'amount', 'dealname']);
+      ['closedate', 'hubspot_owner_id', 'amount', 'dealname', ...wonDateProps]);
 
-    // Agrupar por mes (YYYY-MM)
+    function parseTs(val) {
+      if (!val) return null;
+      return typeof val === 'string' && val.includes('-') ? new Date(val).getTime() : parseInt(val);
+    }
+
+    // Agrupar por mes usando la fecha de entrada al stage ganado (más confiable que closedate)
     const byMonth = {};
     deals.forEach(d => {
-      const raw   = d.properties?.closedate;
-      const ts    = raw && typeof raw === 'string' && raw.includes('-') ? new Date(raw).getTime() : parseInt(raw || 0);
+      // Elegir la mejor fecha disponible: hs_date_entered_* → closedate
+      let ts = null;
+      for (const id of stages.closedWonIds) {
+        ts = parseTs(d.properties?.[`hs_date_entered_${id}`]);
+        if (ts) break;
+      }
+      if (!ts) ts = parseTs(d.properties?.closedate);
+      if (!ts || ts < start) return; // fuera del rango de visualización
+
       const oid   = String(d.properties?.hubspot_owner_id || 'sin_asignar');
       const name  = ownerMap[oid] || oid;
       const date  = new Date(ts);

@@ -219,7 +219,8 @@ router.get('/mensual', async (req, res) => {
     // Agrupar por mes (YYYY-MM)
     const byMonth = {};
     deals.forEach(d => {
-      const ts    = parseInt(d.properties?.closedate || 0);
+      const raw   = d.properties?.closedate;
+      const ts    = raw && typeof raw === 'string' && raw.includes('-') ? new Date(raw).getTime() : parseInt(raw || 0);
       const oid   = String(d.properties?.hubspot_owner_id || 'sin_asignar');
       const name  = ownerMap[oid] || oid;
       const date  = new Date(ts);

@@ -47,17 +47,15 @@ router.get('/resumen', async (req, res) => {
       ? [{ propertyName: 'pipeline', operator: 'EQ', value: stages.pipelineId }]
       : [];
 
-    // Para won deals: ampliar el rango 30 días atrás como red de seguridad (deals con
-    // closedate levemente desalineada) y usar hs_date_entered_* para el filtrado en JS
-    const wonSafeStart = rangeStart - 30 * 24 * 60 * 60 * 1000;
-    const wonDateProps  = stages.closedWonIds.map(id => `hs_date_entered_${id}`);
-
+    // Won deals: sin filtro de fecha en HubSpot (igual que /mensual) para no perder
+    // deals con closedate incorrecta. El filtro por rango se aplica en JS con hs_date_entered_*.
+    const wonDateProps    = stages.closedWonIds.map(id => `hs_date_entered_${id}`);
     const closedWonGroups = stages.closedWonIds.length
       ? stages.closedWonIds.map(id => [
-          ...dateFilter('closedate', wonSafeStart, rangeEnd),
           { propertyName: 'dealstage', operator: 'EQ', value: id },
+          ...pipelineFilter,
         ])
-      : [[...dateFilter('closedate', wonSafeStart, rangeEnd), { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
+      : [[{ propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
 
     const visitadoGroups = stages.visitadoIds.length
       ? stages.visitadoIds.map(id => [
@@ -132,20 +130,17 @@ router.get('/resumen', async (req, res) => {
 
     const tarVenByOwner = countByOwner(tareasVencidasAll, 'hubspot_owner_id');
 
-    // Fecha real de cierre: hs_date_entered_{stageId} → closedate (mismo criterio que /mensual)
+    // Fecha real de cierre: hs_date_entered_{stageId} → closedate (idéntico a /mensual)
+    function parseTs(val) {
+      if (!val) return null;
+      return typeof val === 'string' && val.includes('-') ? new Date(val).getTime() : parseInt(val);
+    }
     function getWonTs(d) {
       for (const id of stages.closedWonIds) {
-        const raw = d.properties?.[`hs_date_entered_${id}`];
-        if (raw) {
-          const ts = typeof raw === 'string' && raw.includes('-') ? new Date(raw).getTime() : parseInt(raw);
-          if (ts) return ts;
-        }
+        const ts = parseTs(d.properties?.[`hs_date_entered_${id}`]);
+        if (ts) return ts;
       }
-      return inRange(d.properties?.closedate, 0, Infinity)
-        ? (typeof d.properties.closedate === 'string' && d.properties.closedate.includes('-')
-            ? new Date(d.properties.closedate).getTime()
-            : parseInt(d.properties.closedate))
-        : null;
+      return parseTs(d.properties?.closedate);
     }
 
     // En modo "desde" (mes en curso), la primera semana puede arrancar antes del día 1 del mes

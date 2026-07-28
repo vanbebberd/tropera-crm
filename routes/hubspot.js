@@ -47,13 +47,17 @@ router.get('/resumen', async (req, res) => {
       ? [{ propertyName: 'pipeline', operator: 'EQ', value: stages.pipelineId }]
       : [];
 
-    // filterGroups = array de arrays → HubSpot los une con OR (un grupo por stage)
+    // Para won deals: ampliar el rango 30 días atrás como red de seguridad (deals con
+    // closedate levemente desalineada) y usar hs_date_entered_* para el filtrado en JS
+    const wonSafeStart = rangeStart - 30 * 24 * 60 * 60 * 1000;
+    const wonDateProps  = stages.closedWonIds.map(id => `hs_date_entered_${id}`);
+
     const closedWonGroups = stages.closedWonIds.length
       ? stages.closedWonIds.map(id => [
-          ...dateFilter('closedate', rangeStart, rangeEnd),
+          ...dateFilter('closedate', wonSafeStart, rangeEnd),
           { propertyName: 'dealstage', operator: 'EQ', value: id },
         ])
-      : [[...dateFilter('closedate', rangeStart, rangeEnd), { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
+      : [[...dateFilter('closedate', wonSafeStart, rangeEnd), { propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
 
     const visitadoGroups = stages.visitadoIds.length
       ? stages.visitadoIds.map(id => [
@@ -70,7 +74,7 @@ router.get('/resumen', async (req, res) => {
     await sleep(SLEEP);
 
     const dealsGanadosAll = await search('deals', closedWonGroups,
-      ['createdate', 'closedate', 'hubspot_owner_id', 'amount']);
+      ['createdate', 'closedate', 'hubspot_owner_id', 'amount', ...wonDateProps]);
     await sleep(SLEEP);
 
     const dealsVisitadosAll = await search('deals', visitadoGroups,
@@ -128,12 +132,35 @@ router.get('/resumen', async (req, res) => {
 
     const tarVenByOwner = countByOwner(tareasVencidasAll, 'hubspot_owner_id');
 
+    // Fecha real de cierre: hs_date_entered_{stageId} → closedate (mismo criterio que /mensual)
+    function getWonTs(d) {
+      for (const id of stages.closedWonIds) {
+        const raw = d.properties?.[`hs_date_entered_${id}`];
+        if (raw) {
+          const ts = typeof raw === 'string' && raw.includes('-') ? new Date(raw).getTime() : parseInt(raw);
+          if (ts) return ts;
+        }
+      }
+      return inRange(d.properties?.closedate, 0, Infinity)
+        ? (typeof d.properties.closedate === 'string' && d.properties.closedate.includes('-')
+            ? new Date(d.properties.closedate).getTime()
+            : parseInt(d.properties.closedate))
+        : null;
+    }
+
+    // En modo "desde" (mes en curso), la primera semana puede arrancar antes del día 1 del mes
+    // → clampear su inicio al rangeStart real para que no cuente días del mes anterior
+    if (req.query.desde && weeksList.length) {
+      const oldest = weeksList[weeksList.length - 1];
+      if (oldest.start < rangeStart) oldest.start = rangeStart;
+    }
+
     // Filtrar por semana y calcular métricas en JS
     const result = [];
 
     weeksList.forEach(({ start, end, label }, i) => {
       const dealsCreados   = dealsCreadosAll.filter(d => inRange(d.properties?.createdate,  start, end));
-      const dealsGanados   = dealsGanadosAll.filter(d => inRange(d.properties?.closedate,   start, end));
+      const dealsGanados   = dealsGanadosAll.filter(d => { const ts = getWonTs(d); return ts && ts >= start && ts <= end; });
       const dealsVisitados = dealsVisitadosAll.filter(d => inRange(d.properties?.createdate, start, end));
       const llamadas       = llamadasAll.filter(l => inRange(l.properties?.hs_createdate,   start, end));
       const reuniones      = reunionesAll.filter(r => inRange(r.properties?.hs_createdate,  start, end));

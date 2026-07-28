@@ -110,7 +110,7 @@ export default function ClientesInsights({ vendedores, ownerFiltro, ownerNombre 
             Clientes en riesgo
           </span>
           <span className="text-gray-600 text-xs ml-2 normal-case font-normal">
-            — compraron la sem. anterior pero no esta semana
+            — sin compras en los últimos 14 días
           </span>
         </div>
         {enRiesgo.length === 0 ? (

@@ -322,6 +322,7 @@ router.get('/pipeline-stats', async (req, res) => {
           nombre: d.properties?.dealname || `Deal ${d.id}`,
           etapa:  stageLabels[d.properties?.dealstage] || d.properties?.dealstage || '—',
           owner:  ownerMap[oid] || oid || 'Sin asignar',
+          ownerId: oid,
           diasSinActividad: ts ? Math.floor((ahora - ts) / 86400000) : null,
         };
       })

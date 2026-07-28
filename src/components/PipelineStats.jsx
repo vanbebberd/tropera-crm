@@ -17,7 +17,7 @@ function diasBadge(d) {
   return 'bg-red-500/20 text-red-400 border border-red-500/30';
 }
 
-export default function PipelineStats({ data, loading }) {
+export default function PipelineStats({ data, loading, ownerFiltro }) {
   if (loading) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -30,7 +30,10 @@ export default function PipelineStats({ data, loading }) {
 
   if (!data) return null;
 
-  const { dealsInactivos = [], tiempoPorEtapa = [], umbralDias = 7 } = data;
+  const { dealsInactivos: todosInactivos = [], tiempoPorEtapa = [], umbralDias = 7 } = data;
+  const dealsInactivos = ownerFiltro && ownerFiltro !== 'todos'
+    ? todosInactivos.filter(d => d.ownerId === ownerFiltro)
+    : todosInactivos;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

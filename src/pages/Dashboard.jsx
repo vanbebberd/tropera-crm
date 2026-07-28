@@ -319,7 +319,7 @@ export default function Dashboard({ onLogout }) {
             Pipeline — actividad y tiempos
             {ownerNombre && <span className="text-blue-400 normal-case ml-2">— {ownerNombre}</span>}
           </h2>
-          <PipelineStats data={pipeStats} loading={pipeLoading} />
+          <PipelineStats data={pipeStats} loading={pipeLoading} ownerFiltro={ownerFiltro} />
         </section>
 
         {/* ── HISTORIAL — respeta el filtro ── */}

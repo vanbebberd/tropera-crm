@@ -4,6 +4,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cart
 
 const COLORS = ['#f97316', '#3b82f6', '#22c55e', '#a855f7', '#14b8a6'];
 
+function shortName(nombre, allNames) {
+  const parts = nombre.trim().split(/\s+/);
+  const first = parts[0];
+  const hasDupe = allNames.filter(n => n.trim().split(/\s+/)[0] === first).length > 1;
+  if (!hasDupe || parts.length < 2) return first;
+  return `${first} ${parts[parts.length - 1].charAt(0)}.`;
+}
+
 export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombre }) {
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState('');
@@ -46,17 +54,19 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
     return found.length > 0 ? found : todosVendedores;
   })();
 
+  const allNombres = vendedores.map(v => v.nombre);
+
   // Datos para gráfico de litros por semana
   const litrosChart = semanas.map((sem, i) => {
     const row = { semana: sem.replace(' 2026', '') };
-    vendedores.forEach(v => { row[v.nombre.split(' ')[0]] = Math.round(v.litros[i] * 100) / 100; });
+    vendedores.forEach(v => { row[shortName(v.nombre, allNombres)] = Math.round(v.litros[i] * 100) / 100; });
     return row;
   });
 
   // Datos para gráfico de clientes por semana
   const clientesChart = semanas.map((sem, i) => {
     const row = { semana: sem.replace(' 2026', '') };
-    vendedores.forEach(v => { row[v.nombre.split(' ')[0]] = v.clientes[i]; });
+    vendedores.forEach(v => { row[shortName(v.nombre, allNombres)] = v.clientes[i]; });
     return row;
   });
 
@@ -142,7 +152,7 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
                             style={{ backgroundColor: COLORS[vi % COLORS.length] + '33', color: COLORS[vi % COLORS.length] }}>
                             {v.nombre.charAt(0)}
                           </div>
-                          {v.nombre}
+                          {shortName(v.nombre, allNombres)}
                         </div>
                       </td>
                       {semanas.map((s, i) => (
@@ -174,7 +184,7 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
                   <Tooltip {...tooltipStyle} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {vendedores.map((v, i) => (
-                    <Bar key={v.nombre} dataKey={v.nombre.split(' ')[0]} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} />
+                    <Bar key={v.nombre} dataKey={shortName(v.nombre, allNombres)} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>
@@ -193,7 +203,7 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
                   <Tooltip {...tooltipStyle} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {vendedores.map((v, i) => (
-                    <Bar key={v.nombre} dataKey={v.nombre.split(' ')[0]} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} />
+                    <Bar key={v.nombre} dataKey={shortName(v.nombre, allNombres)} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>
@@ -201,14 +211,14 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
           </div>
 
           {/* Velocidad de cierre por cliente */}
-          <VelocidadClientesTable vendedores={vendedores} colors={COLORS} />
+          <VelocidadClientesTable vendedores={vendedores} colors={COLORS} allNombres={allNombres} />
         </>
       )}
     </div>
   );
 }
 
-function VelocidadClientesTable({ vendedores, colors }) {
+function VelocidadClientesTable({ vendedores, colors, allNombres }) {
   const [busqueda, setBusqueda] = useState('');
 
   const tieneVelocidad = vendedores.some(v => Array.isArray(v.clientesVelocidad));
@@ -276,7 +286,7 @@ function VelocidadClientesTable({ vendedores, colors }) {
                   <tr key={`${f.vendedor}-${f.nombre}`} className="border-b border-gray-800/40 hover:bg-gray-800/20">
                     <td className="px-4 py-2">
                       <span className="text-xs font-medium" style={{ color: colors[f.colorIdx % colors.length] }}>
-                        {f.vendedor.split(' ')[0]}
+                        {shortName(f.vendedor, allNombres || [])}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-gray-300 text-xs">{f.nombre}</td>
@@ -299,7 +309,7 @@ function VelocidadClientesTable({ vendedores, colors }) {
                       <tr key={`${f.vendedor}-${f.nombre}`} className="border-b border-gray-800/40 hover:bg-gray-800/20 opacity-50">
                         <td className="px-4 py-2">
                           <span className="text-xs font-medium" style={{ color: colors[f.colorIdx % colors.length] }}>
-                            {f.vendedor.split(' ')[0]}
+                            {shortName(f.vendedor, allNombres || [])}
                           </span>
                         </td>
                         <td className="px-4 py-2 text-gray-400 text-xs">{f.nombre}</td>

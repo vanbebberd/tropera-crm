@@ -88,7 +88,7 @@ export default function Dashboard({ onLogout }) {
       setLastUpdate(new Date());
       // Pipeline stats se carga aparte para no bloquear la UI principal
       setPipeLoading(true);
-      api.pipelineStats(pipeline).then(ps => { setPipeStats(ps); setPipeLoading(false); })
+      api.pipelineStats(pipeline, 14).then(ps => { setPipeStats(ps); setPipeLoading(false); })
         .catch(() => setPipeLoading(false));
     } catch (e) {
       setError(e.message);

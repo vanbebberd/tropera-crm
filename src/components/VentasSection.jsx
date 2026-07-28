@@ -237,8 +237,12 @@ function VelocidadClientesTable({ vendedores, colors, allNombres }) {
     return todas;
   }, [vendedores, busqueda]);
 
-  const conVelocidad = filas.filter(f => f.velocidad !== null);
-  const sinVelocidad = filas.filter(f => f.velocidad === null);
+  const filasOrdenadas = [...filas].sort((a, b) => {
+    if (a.velocidad !== null && b.velocidad !== null) return a.velocidad - b.velocidad;
+    if (a.velocidad !== null) return -1;
+    if (b.velocidad !== null) return 1;
+    return a.nombre.localeCompare(b.nombre);
+  });
 
   function badge(v) {
     if (v <= 1)  return 'bg-green-500/20 text-green-400 border border-green-500/30';
@@ -282,7 +286,7 @@ function VelocidadClientesTable({ vendedores, colors, allNombres }) {
                 </tr>
               </thead>
               <tbody>
-                {conVelocidad.map(f => (
+                {filasOrdenadas.map(f => (
                   <tr key={`${f.vendedor}-${f.nombre}`} className="border-b border-gray-800/40 hover:bg-gray-800/20">
                     <td className="px-4 py-2">
                       <span className="text-xs font-medium" style={{ color: colors[f.colorIdx % colors.length] }}>
@@ -292,33 +296,17 @@ function VelocidadClientesTable({ vendedores, colors, allNombres }) {
                     <td className="px-4 py-2 text-gray-300 text-xs">{f.nombre}</td>
                     <td className="px-4 py-2 text-right text-gray-400 text-xs">{f.apariciones}</td>
                     <td className="px-4 py-2 text-right">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge(f.velocidad)}`}>
-                        {f.velocidad === 1 ? '1 sem' : `${f.velocidad} sem`}
-                      </span>
+                      {f.velocidad !== null
+                        ? <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge(f.velocidad)}`}>
+                            {f.velocidad === 1 ? '1 sem' : `${f.velocidad} sem`}
+                          </span>
+                        : <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700/50 text-gray-500 border border-gray-700">
+                            1 compra
+                          </span>
+                      }
                     </td>
                   </tr>
                 ))}
-                {sinVelocidad.length > 0 && (
-                  <>
-                    <tr className="border-b border-gray-800">
-                      <td colSpan={4} className="px-4 py-2 text-xs text-gray-600 italic">
-                        Una sola compra registrada ({sinVelocidad.length} clientes)
-                      </td>
-                    </tr>
-                    {sinVelocidad.map(f => (
-                      <tr key={`${f.vendedor}-${f.nombre}`} className="border-b border-gray-800/40 hover:bg-gray-800/20 opacity-50">
-                        <td className="px-4 py-2">
-                          <span className="text-xs font-medium" style={{ color: colors[f.colorIdx % colors.length] }}>
-                            {shortName(f.vendedor, allNombres || [])}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-gray-400 text-xs">{f.nombre}</td>
-                        <td className="px-4 py-2 text-right text-gray-600 text-xs">1</td>
-                        <td className="px-4 py-2 text-right text-gray-600 text-xs">—</td>
-                      </tr>
-                    ))}
-                  </>
-                )}
               </tbody>
             </table>
           </div>

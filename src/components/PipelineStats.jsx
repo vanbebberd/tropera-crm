@@ -70,7 +70,7 @@ export default function PipelineStats({ data, loading }) {
           <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
             Tiempo promedio por etapa
           </span>
-          <span className="text-gray-600 text-xs ml-2 normal-case font-normal">— días (deals cerrados)</span>
+          <span className="text-gray-600 text-xs ml-2 normal-case font-normal">— días promedio en cada etapa (deals abiertos)</span>
         </div>
         {tiempoPorEtapa.length === 0 ? (
           <div className="px-4 py-8 text-center">

@@ -278,31 +278,33 @@ router.get('/pipeline-stats', async (req, res) => {
       ? [{ propertyName: 'pipeline', operator: 'EQ', value: stages.pipelineId }]
       : [];
 
-    // ── 1. Deals abiertos — actividad reciente ───────────────────────────────
+    // ── Deals abiertos: inactividad + tiempo en etapa actual ─────────────────
+    // hs_date_entered_{stageId} indica cuándo entró a esa etapa (más confiable que hs_time_in_*)
+    const dateEnteredProps = allOpenStageIds.map(id => `hs_date_entered_${id}`);
     await sleep(SLEEP);
     const openDeals = await search('deals',
       [...pipelineFilter,
        { propertyName: 'hs_is_closed', operator: 'EQ', value: 'false' }],
-      ['dealname', 'dealstage', 'hubspot_owner_id', 'hs_last_activity_date', 'createdate', 'amount']);
+      ['dealname', 'dealstage', 'hubspot_owner_id', 'hs_last_activity_date', 'createdate', ...dateEnteredProps]);
 
     const ahora = Date.now();
+
+    function parseTs(val) {
+      if (!val) return null;
+      return typeof val === 'string' && val.includes('-') ? new Date(val).getTime() : parseInt(val);
+    }
+
+    // Deals sin actividad reciente
     const dealsInactivos = openDeals
       .filter(d => {
-        const lastAct = d.properties?.hs_last_activity_date;
-        if (!lastAct) return true; // sin actividad registrada = inactivo
-        const ts = typeof lastAct === 'string' && lastAct.includes('-')
-          ? new Date(lastAct).getTime() : parseInt(lastAct);
-        return (ahora - ts) > umbralMs;
+        const ts = parseTs(d.properties?.hs_last_activity_date);
+        return !ts || (ahora - ts) > umbralMs;
       })
       .map(d => {
-        const lastAct = d.properties?.hs_last_activity_date;
-        const ts = lastAct
-          ? (typeof lastAct === 'string' && lastAct.includes('-')
-              ? new Date(lastAct).getTime() : parseInt(lastAct))
-          : null;
+        const ts  = parseTs(d.properties?.hs_last_activity_date);
         const oid = String(d.properties?.hubspot_owner_id || '');
         return {
-          id: d.id,
+          id:    d.id,
           nombre: d.properties?.dealname || `Deal ${d.id}`,
           etapa:  stageLabels[d.properties?.dealstage] || d.properties?.dealstage || '—',
           owner:  ownerMap[oid] || oid || 'Sin asignar',
@@ -311,35 +313,25 @@ router.get('/pipeline-stats', async (req, res) => {
       })
       .sort((a, b) => (b.diasSinActividad ?? 999) - (a.diasSinActividad ?? 999));
 
-    // ── 2. Tiempo promedio por etapa (deals cerrados) ────────────────────────
-    await sleep(SLEEP);
-    const timeProps = allOpenStageIds.map(id => `hs_time_in_${id}`);
-    const closedWonGroups = stages.closedWonIds.length
-      ? stages.closedWonIds.map(id => [
-          { propertyName: 'dealstage', operator: 'EQ', value: id },
-          ...pipelineFilter,
-        ])
-      : [[{ propertyName: 'dealstage', operator: 'EQ', value: 'closedwon' }]];
-
-    const closedDeals = await search('deals', closedWonGroups, timeProps);
-
-    // Promediar hs_time_in_{id} por etapa
+    // Tiempo promedio en etapa actual (por cada deal abierto, cuántos días lleva en su etapa)
     const tiempoAcum = {};
-    closedDeals.forEach(d => {
-      allOpenStageIds.forEach(stageId => {
-        const val = parseFloat(d.properties?.[`hs_time_in_${stageId}`] || 0);
-        if (val > 0) {
-          if (!tiempoAcum[stageId]) tiempoAcum[stageId] = { total: 0, count: 0 };
-          tiempoAcum[stageId].total += val;
-          tiempoAcum[stageId].count += 1;
-        }
-      });
+    openDeals.forEach(d => {
+      const stageId = d.properties?.dealstage;
+      if (!stageId || closedIds.has(stageId)) return;
+      // Fecha en que entró a la etapa actual
+      const enteredVal = d.properties?.[`hs_date_entered_${stageId}`];
+      const entered    = parseTs(enteredVal) || parseTs(d.properties?.createdate);
+      if (!entered) return;
+      const dias = Math.floor((ahora - entered) / 86400000);
+      if (!tiempoAcum[stageId]) tiempoAcum[stageId] = { total: 0, count: 0 };
+      tiempoAcum[stageId].total += dias;
+      tiempoAcum[stageId].count += 1;
     });
 
     const tiempoPorEtapa = Object.entries(tiempoAcum)
       .map(([id, { total, count }]) => ({
         etapa:        stageLabels[id] || id,
-        promedioDias: Math.round(total / count / 86400000),
+        promedioDias: Math.round(total / count),
         deals:        count,
       }))
       .filter(e => e.promedioDias > 0)

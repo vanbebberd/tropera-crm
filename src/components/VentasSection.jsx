@@ -219,9 +219,16 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
 }
 
 function VelocidadClientesTable({ vendedores, colors, allNombres }) {
-  const [busqueda, setBusqueda] = useState('');
+  const [busqueda,      setBusqueda]      = useState('');
+  const [formatoFiltro, setFormatoFiltro] = useState('todos');
 
   const tieneVelocidad = vendedores.some(v => Array.isArray(v.clientesVelocidad));
+
+  const formatos = useMemo(() => {
+    const set = new Set();
+    vendedores.forEach(v => (v.clientesVelocidad || []).forEach(c => { if (c.formato) set.add(c.formato); }));
+    return [...set].sort();
+  }, [vendedores]);
 
   const filas = useMemo(() => {
     const todas = [];
@@ -230,12 +237,15 @@ function VelocidadClientesTable({ vendedores, colors, allNombres }) {
         todas.push({ ...c, vendedor: v.nombre, colorIdx: vi });
       });
     });
-    if (busqueda.trim()) {
-      const q = busqueda.trim().toLowerCase();
-      return todas.filter(f => f.nombre.toLowerCase().includes(q) || f.vendedor.toLowerCase().includes(q));
-    }
-    return todas;
-  }, [vendedores, busqueda]);
+    return todas.filter(f => {
+      if (formatoFiltro !== 'todos' && f.formato !== formatoFiltro) return false;
+      if (busqueda.trim()) {
+        const q = busqueda.trim().toLowerCase();
+        return f.nombre.toLowerCase().includes(q) || f.vendedor.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [vendedores, busqueda, formatoFiltro]);
 
   const filasOrdenadas = [...filas].sort((a, b) => {
     if (a.velocidad !== null && b.velocidad !== null) return a.velocidad - b.velocidad;
@@ -253,11 +263,31 @@ function VelocidadClientesTable({ vendedores, colors, allNombres }) {
 
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800">
-      <div className="px-4 py-3 flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Velocidad de compra por cliente
-          <span className="ml-2 text-gray-600 normal-case font-normal">— semanas promedio entre compras</span>
-        </span>
+      <div className="px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            Velocidad de compra por cliente
+          </span>
+          {tieneVelocidad && formatos.length > 0 && (
+            <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg p-0.5 gap-0.5">
+              <button
+                onClick={() => setFormatoFiltro('todos')}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${formatoFiltro === 'todos' ? 'bg-orange-500 text-white' : 'text-gray-400 hover:text-white'}`}
+              >
+                Todos
+              </button>
+              {formatos.map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFormatoFiltro(f)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${formatoFiltro === f ? 'bg-orange-500 text-white' : 'text-gray-400 hover:text-white'}`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {tieneVelocidad && (
           <input
             value={busqueda}
@@ -281,8 +311,11 @@ function VelocidadClientesTable({ vendedores, colors, allNombres }) {
                 <tr className="border-b border-gray-800 bg-gray-900/60">
                   <th className="text-left px-4 py-2 text-gray-500 font-medium text-xs">Vendedor</th>
                   <th className="text-left px-4 py-2 text-gray-500 font-medium text-xs">Cliente</th>
-                  <th className="text-right px-4 py-2 text-gray-500 font-medium text-xs">Semanas activo</th>
-                  <th className="text-right px-4 py-2 text-gray-500 font-medium text-xs">Vel. promedio</th>
+                  {formatoFiltro === 'todos' && formatos.length > 0 && (
+                    <th className="text-left px-4 py-2 text-gray-500 font-medium text-xs">Formato</th>
+                  )}
+                  <th className="text-right px-4 py-2 text-gray-500 font-medium text-xs">Sem. activo</th>
+                  <th className="text-right px-4 py-2 text-gray-500 font-medium text-xs">Vel. prom.</th>
                 </tr>
               </thead>
               <tbody>
@@ -294,6 +327,9 @@ function VelocidadClientesTable({ vendedores, colors, allNombres }) {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-gray-300 text-xs">{f.nombre}</td>
+                    {formatoFiltro === 'todos' && formatos.length > 0 && (
+                      <td className="px-4 py-2 text-gray-500 text-xs">{f.formato}</td>
+                    )}
                     <td className="px-4 py-2 text-right text-gray-400 text-xs">{f.apariciones}</td>
                     <td className="px-4 py-2 text-right">
                       {f.velocidad !== null

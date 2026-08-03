@@ -16,13 +16,28 @@ export default function ClientesInsights({ vendedores, ownerFiltro, ownerNombre 
   const allNombres = vendedores.map(v => v.nombre);
 
   // Filtrar vendedor si hay filtro activo
+  const sinMatchExcel = ownerNombre && ownerFiltro !== 'todos' &&
+    !vendedores.some(v => {
+      const needle = ownerNombre.trim().toLowerCase();
+      return v.nombre.trim().toLowerCase().includes(needle) ||
+        needle.split(/\s+/).every(w => v.nombre.trim().toLowerCase().includes(w));
+    });
+
   const vList = (() => {
     if (!ownerNombre || ownerFiltro === 'todos') return vendedores;
     const needle = ownerNombre.trim().toLowerCase();
-    const found  = vendedores.filter(v => v.nombre.trim().toLowerCase().includes(needle) ||
+    return vendedores.filter(v => v.nombre.trim().toLowerCase().includes(needle) ||
       needle.split(/\s+/).every(w => v.nombre.trim().toLowerCase().includes(w)));
-    return found.length ? found : vendedores;
   })();
+
+  if (sinMatchExcel) {
+    return (
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 text-center">
+        <p className="text-sm text-gray-500">Sin datos de Excel para <span className="text-gray-300">{ownerNombre}</span></p>
+        <p className="text-xs text-gray-600 mt-1">El nombre en el Excel puede ser diferente al de HubSpot</p>
+      </div>
+    );
+  }
 
   const tieneTop     = vList.some(v => v.clientesTop?.length);
   const tieneRiesgo  = vList.some(v => v.clientesEnRiesgo?.length);

@@ -10,24 +10,30 @@ function shortName(nombre, allNames) {
 
 const COLORS = ['#f97316', '#3b82f6', '#22c55e', '#a855f7', '#14b8a6'];
 
+function matchVendedor(ownerName, excelName) {
+  const o = ownerName.trim().toLowerCase().split(/\s+/).filter(w => w.length > 1);
+  const e = excelName.trim().toLowerCase().split(/\s+/).filter(w => w.length > 1);
+  const oj = o.join(' ');
+  const ej = e.join(' ');
+  // Coincidencia exacta (normalizada)
+  if (oj === ej || ej.includes(oj) || oj.includes(ej)) return true;
+  // Cada palabra del nombre HubSpot aparece en el nombre Excel
+  if (o.every(w => e.some(ew => ew.includes(w) || w.includes(ew)))) return true;
+  // Fallback: solo primer nombre
+  return o[0] === e[0];
+}
+
 export default function ClientesInsights({ vendedores, ownerFiltro, ownerNombre }) {
   if (!vendedores?.length) return null;
 
   const allNombres = vendedores.map(v => v.nombre);
 
-  // Filtrar vendedor si hay filtro activo
   const sinMatchExcel = ownerNombre && ownerFiltro !== 'todos' &&
-    !vendedores.some(v => {
-      const needle = ownerNombre.trim().toLowerCase();
-      return v.nombre.trim().toLowerCase().includes(needle) ||
-        needle.split(/\s+/).every(w => v.nombre.trim().toLowerCase().includes(w));
-    });
+    !vendedores.some(v => matchVendedor(ownerNombre, v.nombre));
 
   const vList = (() => {
     if (!ownerNombre || ownerFiltro === 'todos') return vendedores;
-    const needle = ownerNombre.trim().toLowerCase();
-    return vendedores.filter(v => v.nombre.trim().toLowerCase().includes(needle) ||
-      needle.split(/\s+/).every(w => v.nombre.trim().toLowerCase().includes(w)));
+    return vendedores.filter(v => matchVendedor(ownerNombre, v.nombre));
   })();
 
   if (sinMatchExcel) {

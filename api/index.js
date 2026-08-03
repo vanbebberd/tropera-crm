@@ -9,6 +9,7 @@ app.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 app.use('/api/auth',    authRouter);
 app.use('/api/hubspot', authMiddleware, require('../routes/hubspot'));
-app.use('/api/ventas',  authMiddleware, require('../routes/ventas'));
+app.use('/api/ventas',    authMiddleware, require('../routes/ventas'));
+app.use('/api/facturas', authMiddleware, require('../routes/facturas'));
 
 module.exports = app;

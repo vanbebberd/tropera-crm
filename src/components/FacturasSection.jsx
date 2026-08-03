@@ -76,10 +76,12 @@ export default function FacturasSection({ onUploaded }) {
     try {
       const res = await api.uploadFacturas(file);
       if (res.error) throw new Error(res.error);
-      await cargar();
+      // Recargar y actualizar cache localStorage
+      const fresh = await api.facturas();
+      setData(fresh);
       onUploaded?.();
-    } catch (e) {
-      setError(e.message);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
       e.target.value = '';

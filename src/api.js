@@ -47,7 +47,16 @@ export const api = {
     }
     return res;
   },
-  facturas: () => req('/facturas'),
+  facturas: async () => {
+    const data = await req('/facturas');
+    // Vercel /tmp es efímero: usar localStorage como cache
+    if (data?.current) {
+      localStorage.setItem('facturas_cache', JSON.stringify(data));
+      return data;
+    }
+    const cached = localStorage.getItem('facturas_cache');
+    return cached ? JSON.parse(cached) : data;
+  },
   uploadFacturas: async (file) => {
     const form = new FormData();
     form.append('file', file);
@@ -56,6 +65,10 @@ export const api = {
       headers: { Authorization: `Bearer ${getToken()}` },
       body: form,
     });
+    if (!res.ok) {
+      const text = await res.text();
+      try { return JSON.parse(text); } catch { return { error: text }; }
+    }
     return res.json();
   },
 };

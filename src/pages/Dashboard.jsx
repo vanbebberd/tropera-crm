@@ -9,6 +9,7 @@ import VentasSection from '../components/VentasSection';
 import VendedorCards from '../components/VendedorCards';
 import ClientesInsights from '../components/ClientesInsights';
 import PipelineStats from '../components/PipelineStats';
+import FacturasSection from '../components/FacturasSection';
 
 const PERIODO_OPTIONS = [
   { id: 'esta_semana',  label: 'Esta semana' },
@@ -361,6 +362,14 @@ export default function Dashboard({ onLogout }) {
             <HistorialTable semanas={data.semanas} ownerFiltro={ownerFiltro} />
           </section>
         )}
+
+        {/* ── FACTURAS ── */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            Facturas
+          </h2>
+          <FacturasSection />
+        </section>
       </main>
     </div>
   );

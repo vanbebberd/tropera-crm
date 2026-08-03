@@ -47,4 +47,15 @@ export const api = {
     }
     return res;
   },
+  facturas: () => req('/facturas'),
+  uploadFacturas: async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/facturas/upload', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: form,
+    });
+    return res.json();
+  },
 };

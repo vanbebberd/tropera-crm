@@ -16,9 +16,9 @@ export const api = {
   login:   (username, password) =>
     fetch(`${BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) })
       .then(r => r.json()),
-  resumen: (semanas = 4, pipeline = 'all', desde = null) => {
+  resumen: (semanas = 4, pipeline = 'all', desde = null, hasta = null) => {
     const qs = desde
-      ? `pipeline=${pipeline}&desde=${desde}&_=${Date.now()}`
+      ? `pipeline=${pipeline}&desde=${desde}${hasta ? `&hasta=${hasta}` : ''}&_=${Date.now()}`
       : `semanas=${semanas}&pipeline=${pipeline}&_=${Date.now()}`;
     return req(`/hubspot/resumen?${qs}`);
   },

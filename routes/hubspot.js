@@ -28,7 +28,7 @@ router.get('/resumen', async (req, res) => {
     let rangeStart, rangeEnd, weeksList;
     if (req.query.desde) {
       rangeStart = parseInt(req.query.desde);
-      rangeEnd   = Date.now();
+      rangeEnd   = req.query.hasta ? parseInt(req.query.hasta) : Date.now();
       weeksList  = weeksInRange(rangeStart, rangeEnd);
     } else {
       const semanas = Math.min(parseInt(req.query.semanas) || 4, 12);

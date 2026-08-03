@@ -14,11 +14,28 @@ const PERIODO_OPTIONS = [
   { id: 'esta_semana',  label: 'Esta semana' },
   { id: 'sem_pasada',   label: 'Sem. pasada' },
   { id: 'mes_en_curso', label: 'Mes en curso' },
+  { id: 'mes_anterior', label: 'Mes anterior' },
 ];
 
 function primerDiaMes() {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+}
+
+function primerDiaMesAnterior() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
+}
+
+function ultimoDiaMesAnterior() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 0, 23, 59, 59, 999).getTime();
+}
+
+function nombreMesAnterior() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth() - 1, 1)
+    .toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
 }
 
 // Suma todas las semanas en un solo objeto de KPIs (para "Mes en curso")
@@ -78,9 +95,11 @@ export default function Dashboard({ onLogout }) {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const desde = periodo === 'mes_en_curso' ? primerDiaMes() : null;
+      const desde  = periodo === 'mes_en_curso' ? primerDiaMes()
+                   : periodo === 'mes_anterior' ? primerDiaMesAnterior() : null;
+      const hasta  = periodo === 'mes_anterior' ? ultimoDiaMesAnterior() : null;
       const semanas = periodo === 'sem_pasada' ? 2 : 1;
-      const resumen = await api.resumen(semanas, pipeline, desde);
+      const resumen = await api.resumen(semanas, pipeline, desde, hasta);
       setData(resumen);
       const [men, ven] = await Promise.all([api.mensual(6, pipeline), api.ventas()]);
       setMensual(men);
@@ -102,8 +121,8 @@ export default function Dashboard({ onLogout }) {
   // semanaActual: semana 0 (esta sem), semana 1 (sem pasada), o suma del mes
   const semanaActual = (() => {
     if (!data?.semanas?.length) return null;
-    if (periodo === 'mes_en_curso') return sumSemanas(data.semanas);
-    if (periodo === 'sem_pasada')   return data.semanas[1] || data.semanas[0];
+    if (periodo === 'mes_en_curso' || periodo === 'mes_anterior') return sumSemanas(data.semanas);
+    if (periodo === 'sem_pasada') return data.semanas[1] || data.semanas[0];
     return data.semanas[0];
   })();
 
@@ -196,9 +215,19 @@ export default function Dashboard({ onLogout }) {
         {/* ── KPIs — totales o por vendedor si hay filtro ── */}
         <section>
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-            {periodo === 'mes_en_curso' ? 'Resumen mes en curso' : periodo === 'sem_pasada' ? 'Resumen semana pasada' : 'Resumen semana actual'}
-            {periodo !== 'mes_en_curso' && semanaActual?.label && <span className="text-orange-400 normal-case ml-2">({semanaActual.label})</span>}
-            {periodo === 'mes_en_curso' && <span className="text-orange-400 normal-case ml-2">({new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })})</span>}
+            {periodo === 'mes_en_curso' ? 'Resumen mes en curso'
+              : periodo === 'mes_anterior' ? 'Resumen mes anterior'
+              : periodo === 'sem_pasada'   ? 'Resumen semana pasada'
+              : 'Resumen semana actual'}
+            {(periodo === 'esta_semana' || periodo === 'sem_pasada') && semanaActual?.label && (
+              <span className="text-orange-400 normal-case ml-2">({semanaActual.label})</span>
+            )}
+            {periodo === 'mes_en_curso' && (
+              <span className="text-orange-400 normal-case ml-2">({new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })})</span>
+            )}
+            {periodo === 'mes_anterior' && (
+              <span className="text-orange-400 normal-case ml-2">({nombreMesAnterior()})</span>
+            )}
             {ownerNombre && <span className="text-blue-400 normal-case ml-2">— {ownerNombre}</span>}
           </h2>
           {loading && !data ? (

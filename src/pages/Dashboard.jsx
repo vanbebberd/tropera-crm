@@ -132,7 +132,7 @@ export default function Dashboard({ onLogout }) {
   const todos      = allVendors.filter(v =>
     v.dealsGanados + v.dealsCreados + v.dealsVisitados + v.llamadas + v.reuniones + v.tareas + v.tareasVencidas > 0
   );
-  const ownerNombre = ownerFiltro === 'todos' ? null : owners.find(o => o.id === ownerFiltro)?.name;
+  const ownerNombre = ownerFiltro === 'todos' ? null : owners.find(o => String(o.id) === String(ownerFiltro))?.name;
 
   const kpis = (() => {
     if (!semanaActual) return null;

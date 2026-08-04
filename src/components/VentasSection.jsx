@@ -35,23 +35,22 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
   const semanas = data?.semanas || [];
   const todosVendedores = data?.vendedores || [];
 
+  function matchVendedor(ownerName, excelName) {
+    const o = ownerName.trim().toLowerCase().split(/\s+/).filter(w => w.length > 1);
+    const e = excelName.trim().toLowerCase().split(/\s+/).filter(w => w.length > 1);
+    const oj = o.join(' '), ej = e.join(' ');
+    if (oj === ej || ej.includes(oj) || oj.includes(ej)) return true;
+    if (o.every(w => e.some(ew => ew.includes(w) || w.includes(ew)))) return true;
+    return o[0] === e[0];
+  }
+
+  const sinMatchExcel = ownerNombre && ownerFiltro !== 'todos' &&
+    !todosVendedores.some(v => matchVendedor(ownerNombre, v.nombre));
+
   // Filtrar vendedores Excel por nombre cuando hay un filtro activo
   const vendedores = (() => {
     if (!ownerNombre || ownerFiltro === 'todos') return todosVendedores;
-    const needle = ownerNombre.trim().toLowerCase();
-    const needleWords = needle.split(/\s+/);
-    const found = todosVendedores.filter(v => {
-      const vName = v.nombre.trim().toLowerCase();
-      const vWords = vName.split(/\s+/);
-      // Exacto
-      if (vName === needle) return true;
-      // Todas las palabras del nombre Excel están en el nombre HubSpot
-      if (vWords.every(w => needle.includes(w))) return true;
-      // Todas las palabras del nombre HubSpot están en el nombre Excel
-      if (needleWords.every(w => vName.includes(w))) return true;
-      return false;
-    });
-    return found.length > 0 ? found : todosVendedores;
+    return todosVendedores.filter(v => matchVendedor(ownerNombre, v.nombre));
   })();
 
   const allNombres = vendedores.map(v => v.nombre);
@@ -105,7 +104,12 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
         </div>
       </div>
 
-      {!vendedores.length ? (
+      {sinMatchExcel ? (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center">
+          <p className="text-sm text-gray-500">Sin datos de Excel para <span className="text-gray-300">{ownerNombre}</span></p>
+          <p className="text-xs text-gray-600 mt-1">El nombre en el Excel puede ser diferente al de HubSpot</p>
+        </div>
+      ) : !vendedores.length ? (
         <div className="bg-gray-900 border border-gray-800 border-dashed rounded-xl p-10 text-center">
           <p className="text-gray-500 text-sm">Sube el Excel de ventas para ver los datos aquí</p>
           <p className="text-gray-600 text-xs mt-1">Formato esperado: vendedor → categoría → cliente por semana</p>

@@ -215,48 +215,52 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
           </div>
 
           {/* Velocidad de cierre por cliente */}
-          <VelocidadClientesTable vendedores={vendedores} colors={COLORS} allNombres={allNombres} />
+          <VelocidadClientesTable vendedores={vendedores} todosVendedores={todosVendedores} colors={COLORS} allNombres={allNombres} />
         </>
       )}
     </div>
   );
 }
 
-function VelocidadClientesTable({ vendedores, colors, allNombres }) {
+function VelocidadClientesTable({ vendedores: vendedoresProp, todosVendedores, colors, allNombres }) {
   const [busqueda,      setBusqueda]      = useState('');
   const [formatoFiltro, setFormatoFiltro] = useState('todos');
+  const [vendedorFiltro, setVendedorFiltro] = useState('todos');
 
-  const tieneVelocidad = vendedores.some(v => Array.isArray(v.clientesVelocidad));
+  // Usar siempre todos los vendedores para construir las filas (filtro propio)
+  const fuente = todosVendedores || vendedoresProp;
 
-  const formatos = useMemo(() => {
+  const tieneVelocidad = fuente.some(v => Array.isArray(v.clientesVelocidad));
+
+  const formatos = (() => {
     const set = new Set();
-    vendedores.forEach(v => (v.clientesVelocidad || []).forEach(c => { if (c.formato) set.add(c.formato); }));
+    fuente.forEach(v => (v.clientesVelocidad || []).forEach(c => { if (c.formato) set.add(c.formato); }));
     return [...set].sort();
-  }, [vendedores]);
+  })();
 
-  const filas = useMemo(() => {
-    const todas = [];
-    vendedores.forEach((v, vi) => {
-      (v.clientesVelocidad || []).forEach(c => {
-        todas.push({ ...c, vendedor: v.nombre, colorIdx: vi });
-      });
-    });
-    return todas.filter(f => {
-      if (formatoFiltro !== 'todos' && f.formato !== formatoFiltro) return false;
-      if (busqueda.trim()) {
-        const q = busqueda.trim().toLowerCase();
-        return f.nombre.toLowerCase().includes(q) || f.vendedor.toLowerCase().includes(q);
-      }
-      return true;
-    });
-  }, [vendedores, busqueda, formatoFiltro]);
+  const nombresVendedores = fuente.map(v => v.nombre);
 
-  const filasOrdenadas = [...filas].sort((a, b) => {
-    if (a.velocidad !== null && b.velocidad !== null) return a.velocidad - b.velocidad;
-    if (a.velocidad !== null) return -1;
-    if (b.velocidad !== null) return 1;
-    return a.nombre.localeCompare(b.nombre);
+  const todasFilas = [];
+  fuente.forEach((v, vi) => {
+    (v.clientesVelocidad || []).forEach(c => {
+      todasFilas.push({ ...c, vendedor: v.nombre, colorIdx: vi });
+    });
   });
+
+  const q = busqueda.trim().toLowerCase();
+  const filasOrdenadas = todasFilas
+    .filter(f => {
+      if (vendedorFiltro !== 'todos' && f.vendedor !== vendedorFiltro) return false;
+      if (formatoFiltro !== 'todos' && f.formato !== formatoFiltro) return false;
+      if (q) return (f.nombre || '').toLowerCase().includes(q) || (f.vendedor || '').toLowerCase().includes(q);
+      return true;
+    })
+    .sort((a, b) => {
+      if (a.velocidad !== null && b.velocidad !== null) return a.velocidad - b.velocidad;
+      if (a.velocidad !== null) return -1;
+      if (b.velocidad !== null) return 1;
+      return (a.nombre || '').localeCompare(b.nombre || '');
+    });
 
   function badge(v) {
     if (v <= 1)  return 'bg-green-500/20 text-green-400 border border-green-500/30';
@@ -293,12 +297,24 @@ function VelocidadClientesTable({ vendedores, colors, allNombres }) {
           )}
         </div>
         {tieneVelocidad && (
-          <input
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            placeholder="Buscar..."
-            className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-3 py-1 w-44 focus:outline-none focus:border-orange-500 placeholder-gray-600"
-          />
+          <div className="flex items-center gap-2">
+            {nombresVendedores.length > 1 && (
+              <select
+                value={vendedorFiltro}
+                onChange={e => setVendedorFiltro(e.target.value)}
+                className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-orange-500"
+              >
+                <option value="todos">Todos</option>
+                {nombresVendedores.map(n => <option key={n} value={n}>{shortName(n, nombresVendedores)}</option>)}
+              </select>
+            )}
+            <input
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder="Buscar cliente..."
+              className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-3 py-1 w-40 focus:outline-none focus:border-orange-500 placeholder-gray-600"
+            />
+          </div>
         )}
       </div>
 

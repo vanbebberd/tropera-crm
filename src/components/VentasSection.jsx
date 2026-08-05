@@ -296,16 +296,23 @@ function VelocidadClientesTable({ vendedores: vendedoresProp, todosVendedores, c
         {tieneVelocidad && (
           <div className="flex items-center gap-2">
             {fuente.length > 1 && (
-              <select
-                value={vendedorIdx}
-                onChange={e => setVendedorIdx(Number(e.target.value))}
-                className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-orange-500"
-              >
-                <option value={-1}>Todos</option>
+              <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg p-0.5 gap-0.5 flex-wrap">
+                <button
+                  onClick={() => setVendedorIdx(-1)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${vendedorIdx === -1 ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                >
+                  Todos
+                </button>
                 {fuente.map((v, i) => (
-                  <option key={i} value={i}>{shortName(v.nombre, fuente.map(x => x.nombre))}</option>
+                  <button
+                    key={i}
+                    onClick={() => setVendedorIdx(i)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${vendedorIdx === i ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    {shortName(v.nombre, fuente.map(x => x.nombre))}
+                  </button>
                 ))}
-              </select>
+              </div>
             )}
             <input
               value={busqueda}

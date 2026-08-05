@@ -223,14 +223,13 @@ export default function VentasSection({ data, onRefresh, ownerFiltro, ownerNombr
 }
 
 function VelocidadClientesTable({ vendedores: vendedoresProp, todosVendedores, colors, allNombres }) {
-  const [busqueda,      setBusqueda]      = useState('');
-  const [formatoFiltro, setFormatoFiltro] = useState('todos');
-  const [vendedorFiltro, setVendedorFiltro] = useState('todos');
+  const [busqueda,       setBusqueda]       = useState('');
+  const [formatoFiltro,  setFormatoFiltro]  = useState('todos');
+  const [vendedorIdx,    setVendedorIdx]    = useState(-1); // -1 = todos
 
-  // Usar siempre todos los vendedores para construir las filas (filtro propio)
-  const fuente = todosVendedores || vendedoresProp;
+  const fuente = (todosVendedores && todosVendedores.length > 0) ? todosVendedores : vendedoresProp;
 
-  const tieneVelocidad = fuente.some(v => Array.isArray(v.clientesVelocidad));
+  const tieneVelocidad = fuente.some(v => Array.isArray(v.clientesVelocidad) && v.clientesVelocidad.length > 0);
 
   const formatos = (() => {
     const set = new Set();
@@ -238,19 +237,17 @@ function VelocidadClientesTable({ vendedores: vendedoresProp, todosVendedores, c
     return [...set].sort();
   })();
 
-  const nombresVendedores = fuente.map(v => v.nombre);
-
   const todasFilas = [];
   fuente.forEach((v, vi) => {
     (v.clientesVelocidad || []).forEach(c => {
-      todasFilas.push({ ...c, vendedor: v.nombre, colorIdx: vi });
+      todasFilas.push({ ...c, vendedor: v.nombre, colorIdx: vi, vendedorIdx: vi });
     });
   });
 
   const q = busqueda.trim().toLowerCase();
   const filasOrdenadas = todasFilas
     .filter(f => {
-      if (vendedorFiltro !== 'todos' && f.vendedor !== vendedorFiltro) return false;
+      if (vendedorIdx !== -1 && f.vendedorIdx !== vendedorIdx) return false;
       if (formatoFiltro !== 'todos' && f.formato !== formatoFiltro) return false;
       if (q) return (f.nombre || '').toLowerCase().includes(q) || (f.vendedor || '').toLowerCase().includes(q);
       return true;
@@ -298,14 +295,16 @@ function VelocidadClientesTable({ vendedores: vendedoresProp, todosVendedores, c
         </div>
         {tieneVelocidad && (
           <div className="flex items-center gap-2">
-            {nombresVendedores.length > 1 && (
+            {fuente.length > 1 && (
               <select
-                value={vendedorFiltro}
-                onChange={e => setVendedorFiltro(e.target.value)}
+                value={vendedorIdx}
+                onChange={e => setVendedorIdx(Number(e.target.value))}
                 className="bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-orange-500"
               >
-                <option value="todos">Todos</option>
-                {nombresVendedores.map(n => <option key={n} value={n}>{shortName(n, nombresVendedores)}</option>)}
+                <option value={-1}>Todos</option>
+                {fuente.map((v, i) => (
+                  <option key={i} value={i}>{shortName(v.nombre, fuente.map(x => x.nombre))}</option>
+                ))}
               </select>
             )}
             <input
